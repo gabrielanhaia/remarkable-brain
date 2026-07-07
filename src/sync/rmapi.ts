@@ -14,10 +14,15 @@ export interface RmDoc {
   type: string;
 }
 export interface Rmapi {
-  /** Documents tagged with `brainTag`, excluding trash, with metadata resolved via stat. */
+  /** Documents opted in by tag `brainTag` OR by `#brain` in the title, excluding trash. */
   listBrainDocs(brainTag: string): Promise<RmDoc[]>;
   /** Download a document to destDir; returns the path to the produced `.rmdoc` archive. */
   downloadDoc(remotePath: string, destDir: string): Promise<string>;
+}
+
+/** Filenames (basenames of find paths) that carry an explicit `#brain` opt-in token. */
+export function nameMatchedPaths(allPaths: string[]): string[] {
+  return allPaths.filter((p) => /#brain\b/i.test(p.split('/').pop() ?? ''));
 }
 
 /** Parse `rmapi find --compact` output: one path per line; directories end with '/'. */
@@ -60,8 +65,11 @@ export function createRmapi(bin: string): Rmapi {
 
   return {
     async listBrainDocs(brainTag: string): Promise<RmDoc[]> {
-      const { stdout } = await run(['find', '--compact', `--tag=${brainTag}`]);
-      const paths = parseFindPaths(stdout).filter((p) => !p.startsWith('/trash/'));
+      const { stdout: tagged } = await run(['find', '--compact', `--tag=${brainTag}`]);
+      const { stdout: all } = await run(['find', '--compact', '/']);
+      const byTag = parseFindPaths(tagged);
+      const byName = nameMatchedPaths(parseFindPaths(all));
+      const paths = [...new Set([...byTag, ...byName])].filter((p) => !p.startsWith('/trash/'));
       const docs: RmDoc[] = [];
       for (const p of paths) {
         try {

@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { loadConfig } from '../config.js';
+import { resolveConfig } from '../config.js';
 import { openDb, migrate } from '../storage/db.js';
 import { Repo } from '../storage/repo.js';
 import { buildToolHandlers } from './tools.js';
@@ -13,7 +13,7 @@ function text(payload: unknown) {
 }
 
 export async function startServer(): Promise<void> {
-  const cfg = loadConfig();
+  const cfg = resolveConfig();
   mkdirSync(cfg.home, { recursive: true });
   const db = openDb(cfg.dbPath);
   migrate(db);

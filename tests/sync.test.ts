@@ -78,6 +78,48 @@ test('runSync indexes #brain docs, honors hard-exclusion, skips unchanged', asyn
   expect(extract).toHaveBeenCalledTimes(1);
 });
 
+test('runSync opts in a notebook by #brain in its title (no tag)', async () => {
+  const db = new Database(':memory:');
+  migrate(db);
+  const repo = new Repo(db);
+  const home = tmp();
+  const rmapi = {
+    listBrainDocs: vi
+      .fn()
+      .mockResolvedValue([doc({ id: 'z', name: 'Ordio #brain', path: '/Ordio #brain', tags: [] })]),
+    downloadDoc: vi.fn(async (_p: string, dest: string) => {
+      const f = join(dest, 'doc.rmdoc');
+      writeFileSync(f, 'archive');
+      return f;
+    }),
+  };
+  const renderer = {
+    renderDocToPngs: vi.fn(async (_a: string, outDir: string, docId: string) => {
+      const p = join(outDir, `${docId}-p1.png`);
+      writeFileSync(p, 'imgdata');
+      return [{ pageNumber: 1, path: p }];
+    }),
+  };
+  const extract = vi.fn().mockResolvedValue({
+    extracted_text: 'hi',
+    page_type: 'idea',
+    entities: [],
+    open_loop: false,
+    open_loop_description: '',
+  });
+  const s = await runSync({
+    repo,
+    rmapi,
+    renderer,
+    extract,
+    manifestPath: join(home, 'm.json'),
+    imagesDir: join(home, 'images'),
+    tmpDir: home,
+  } as SyncDeps);
+  expect(s.pagesExtracted).toBe(1);
+  expect(s.skippedExcluded).toEqual([]);
+});
+
 test('runSync records per-page errors and continues', async () => {
   const db = new Database(':memory:');
   migrate(db);

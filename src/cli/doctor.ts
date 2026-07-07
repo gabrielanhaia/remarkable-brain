@@ -1,4 +1,4 @@
-import { loadConfig } from '../config.js';
+import type { Config } from '../config.js';
 
 export interface DoctorResult {
   name: string;
@@ -10,8 +10,7 @@ export interface DoctorChecks {
   homeWritable: boolean;
 }
 
-export function runDoctor(env: NodeJS.ProcessEnv, checks: DoctorChecks): DoctorResult[] {
-  const cfg = loadConfig(env);
+export function runDoctor(cfg: Config, checks: DoctorChecks): DoctorResult[] {
   return [
     { name: 'rmapi (ddvk sync15)', ok: checks.hasBin(cfg.rmapiBin), detail: cfg.rmapiBin },
     { name: 'rmc', ok: checks.hasBin(cfg.rmcBin), detail: 'pipx install rmc' },
