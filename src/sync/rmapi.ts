@@ -1,4 +1,6 @@
 import { execFile } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 const pexec = promisify(execFile);
 
@@ -8,39 +10,78 @@ export interface RmDoc {
   version: string;
   modified: string;
   tags: string[];
+  path: string;
+  type: string;
 }
 export interface Rmapi {
-  listDocuments(): Promise<RmDoc[]>;
-  exportAnnotatedPdf(id: string, outPath: string): Promise<void>;
+  /** Documents tagged with `brainTag`, excluding trash, with metadata resolved via stat. */
+  listBrainDocs(brainTag: string): Promise<RmDoc[]>;
+  /** Download a document to destDir; returns the path to the produced `.rmdoc` archive. */
+  downloadDoc(remotePath: string, destDir: string): Promise<string>;
 }
 
-export function parseLsJson(stdout: string): RmDoc[] {
-  let raw: unknown;
+/** Parse `rmapi find --compact` output: one path per line; directories end with '/'. */
+export function parseFindPaths(stdout: string): string[] {
+  return stdout
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s !== '/' && !s.endsWith('/'));
+}
+
+/** Parse `rmapi stat <path>` JSON metadata into an RmDoc (tags normalized to plain strings). */
+export function parseStatJson(stdout: string, remotePath: string): RmDoc | null {
+  let d: Record<string, unknown>;
   try {
-    raw = JSON.parse(stdout);
+    d = JSON.parse(stdout) as Record<string, unknown>;
   } catch {
-    return [];
+    return null;
   }
-  if (!Array.isArray(raw)) return [];
-  return raw.map((d: any) => ({
-    id: String(d.ID ?? d.id ?? ''),
-    name: String(d.VisibleName ?? d.name ?? ''),
-    version: String(d.Version ?? d.version ?? ''),
-    modified: String(d.ModifiedClient ?? d.Modified ?? d.modified ?? ''),
-    tags: Array.isArray(d.Tags ?? d.tags) ? (d.Tags ?? d.tags).map(String) : [],
-  }));
+  if (!d || !d.ID) return null;
+  const rawTags = Array.isArray(d.Tags) ? (d.Tags as unknown[]) : [];
+  const tags = rawTags
+    .map((t) =>
+      typeof t === 'string' ? t : String((t as Record<string, unknown>)?.name ?? '')
+    )
+    .filter((t) => t.length > 0);
+  return {
+    id: String(d.ID),
+    name: String(d.Name ?? ''),
+    version: String(d.Version ?? ''),
+    modified: String(d.ModifiedClient ?? d.Modified ?? ''),
+    tags,
+    path: remotePath,
+    type: String(d.Type ?? ''),
+  };
 }
 
 export function createRmapi(bin: string): Rmapi {
+  const run = (args: string[], opts: { cwd?: string } = {}) =>
+    pexec(bin, ['-ni', ...args], { maxBuffer: 1024 * 1024 * 128, cwd: opts.cwd });
+
   return {
-    async listDocuments(): Promise<RmDoc[]> {
-      // `rmapi --json ls -l` style output; adapt the flag if the installed rmapi differs.
-      const { stdout } = await pexec(bin, ['--json', 'ls', '-l'], { maxBuffer: 1024 * 1024 * 16 });
-      return parseLsJson(stdout);
+    async listBrainDocs(brainTag: string): Promise<RmDoc[]> {
+      const { stdout } = await run(['find', '--compact', `--tag=${brainTag}`]);
+      const paths = parseFindPaths(stdout).filter((p) => !p.startsWith('/trash/'));
+      const docs: RmDoc[] = [];
+      for (const p of paths) {
+        try {
+          const { stdout: s } = await run(['stat', p]);
+          const doc = parseStatJson(s, p);
+          if (doc && doc.type === 'DocumentType') docs.push(doc);
+        } catch {
+          // a single unreadable entry shouldn't abort the whole listing
+        }
+      }
+      return docs;
     },
-    async exportAnnotatedPdf(id: string, outPath: string): Promise<void> {
-      // `geta` downloads the annotated PDF rendered by the reMarkable cloud.
-      await pexec(bin, ['geta', '-o', outPath, id], { maxBuffer: 1024 * 1024 * 64 });
+
+    async downloadDoc(remotePath: string, destDir: string): Promise<string> {
+      await run(['get', remotePath], { cwd: destDir });
+      const archive = readdirSync(destDir).find(
+        (f) => f.endsWith('.rmdoc') || f.endsWith('.zip')
+      );
+      if (!archive) throw new Error(`rmapi get produced no archive for ${remotePath}`);
+      return join(destDir, archive);
     },
   };
 }

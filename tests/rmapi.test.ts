@@ -1,19 +1,33 @@
 import { expect, test } from 'vitest';
-import { parseLsJson } from '../src/sync/rmapi.js';
+import { parseFindPaths, parseStatJson } from '../src/sync/rmapi.js';
 
-test('parseLsJson extracts id, name, version, modified, tags', () => {
-  const stdout = JSON.stringify([
-    { ID: 'abc', VisibleName: 'Work Notes', Version: '7', ModifiedClient: '2026-01-01T00:00:00Z', Tags: ['brain'] },
-    { ID: 'def', VisibleName: 'Groceries', Version: '2' },
-  ]);
-  const docs = parseLsJson(stdout);
-  expect(docs).toEqual([
-    { id: 'abc', name: 'Work Notes', version: '7', modified: '2026-01-01T00:00:00Z', tags: ['brain'] },
-    { id: 'def', name: 'Groceries', version: '2', modified: '', tags: [] },
-  ]);
+test('parseFindPaths keeps files, drops directories/root/blanks', () => {
+  const stdout = ['/', '/Work Notes', '/German/', '/German/verbs', '/trash/Old', ''].join('\n');
+  expect(parseFindPaths(stdout)).toEqual(['/Work Notes', '/German/verbs', '/trash/Old']);
 });
 
-test('parseLsJson tolerates empty / malformed input', () => {
-  expect(parseLsJson('')).toEqual([]);
-  expect(parseLsJson('not json')).toEqual([]);
+test('parseStatJson maps metadata and normalizes tags', () => {
+  const stdout = JSON.stringify({
+    ID: '06416ad5',
+    Name: 'Ordio',
+    Version: 3,
+    ModifiedClient: '2026-06-29T09:57:21Z',
+    Type: 'DocumentType',
+    Tags: ['brain', { name: 'work' }],
+  });
+  expect(parseStatJson(stdout, '/Ordio')).toEqual({
+    id: '06416ad5',
+    name: 'Ordio',
+    version: '3',
+    modified: '2026-06-29T09:57:21Z',
+    tags: ['brain', 'work'],
+    path: '/Ordio',
+    type: 'DocumentType',
+  });
+});
+
+test('parseStatJson tolerates empty tags and malformed input', () => {
+  const doc = parseStatJson(JSON.stringify({ ID: 'x', Name: 'N', Type: 'DocumentType' }), '/N');
+  expect(doc?.tags).toEqual([]);
+  expect(parseStatJson('not json', '/N')).toBeNull();
 });

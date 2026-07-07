@@ -13,8 +13,9 @@ export interface DoctorChecks {
 export function runDoctor(env: NodeJS.ProcessEnv, checks: DoctorChecks): DoctorResult[] {
   const cfg = loadConfig(env);
   return [
-    { name: 'rmapi', ok: checks.hasBin(cfg.rmapiBin), detail: cfg.rmapiBin },
-    { name: 'poppler (pdftoppm)', ok: checks.hasBin('pdftoppm'), detail: 'brew install poppler' },
+    { name: 'rmapi (ddvk sync15)', ok: checks.hasBin(cfg.rmapiBin), detail: cfg.rmapiBin },
+    { name: 'rmc', ok: checks.hasBin(cfg.rmcBin), detail: 'pipx install rmc' },
+    { name: 'rsvg-convert', ok: checks.hasBin(cfg.rsvgBin), detail: 'brew install librsvg' },
     {
       name: 'ANTHROPIC_API_KEY',
       ok: !!cfg.anthropicApiKey,

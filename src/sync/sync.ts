@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { isHardExcluded, hasBrainTag } from '../config.js';
+import { BRAIN_TAG, isHardExcluded, hasBrainTag } from '../config.js';
 import type { Repo } from '../storage/repo.js';
 import type { Rmapi } from './rmapi.js';
 import type { Renderer } from './render.js';
@@ -29,7 +29,6 @@ export interface SyncSummary {
   docsSynced: number;
   pagesExtracted: number;
   skippedExcluded: string[];
-  skippedUntagged: number;
   errors: { docId: string; page?: number; message: string }[];
 }
 
@@ -42,20 +41,16 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
     docsSynced: 0,
     pagesExtracted: 0,
     skippedExcluded: [],
-    skippedUntagged: 0,
     errors: [],
   };
 
-  const docs = await deps.rmapi.listDocuments();
+  // Opt-in: only #brain-tagged documents are ever fetched.
+  const docs = await deps.rmapi.listBrainDocs(BRAIN_TAG);
   for (const doc of docs) {
     summary.docsConsidered++;
-    // Hard exclusion (name convention) and prior user exclusion both win over the #brain opt-in.
-    if (isHardExcluded(doc.name) || excludedIds.has(doc.id)) {
+    // Hard exclusion (name convention), prior user exclusion, or a missing tag all win over opt-in.
+    if (isHardExcluded(doc.name) || excludedIds.has(doc.id) || !hasBrainTag(doc.tags)) {
       summary.skippedExcluded.push(doc.name);
-      continue;
-    }
-    if (!hasBrainTag(doc.tags)) {
-      summary.skippedUntagged++;
       continue;
     }
     if (!docChanged(manifest, doc.id, doc.version)) {
@@ -63,30 +58,28 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
       continue;
     }
 
-    const pdfPath = join(deps.tmpDir, `${doc.id}.pdf`);
+    let archivePath: string | undefined;
     try {
-      log(`exporting ${doc.name}…`);
-      await deps.rmapi.exportAnnotatedPdf(doc.id, pdfPath);
-      const pngs = await deps.renderer.renderPdfToPngs(pdfPath, deps.tmpDir, doc.id);
+      log(`downloading ${doc.name}…`);
+      archivePath = await deps.rmapi.downloadDoc(doc.path, deps.tmpDir);
+      const pages = await deps.renderer.renderDocToPngs(archivePath, deps.tmpDir, doc.id);
       deps.repo.upsertNotebook({ id: doc.id, name: doc.name });
       const destDir = join(deps.imagesDir, doc.id);
       mkdirSync(destDir, { recursive: true });
 
-      for (let i = 0; i < pngs.length; i++) {
-        const pageNumber = i + 1;
-        const src = pngs[i]!;
-        const hash = hashBuffer(readFileSync(src));
-        if (!pageChanged(manifest, doc.id, pageNumber, hash)) continue;
-        const dest = join(destDir, `page-${pageNumber}.png`);
-        copyFileSync(src, dest);
+      for (const pg of pages) {
+        const hash = hashBuffer(readFileSync(pg.path));
+        if (!pageChanged(manifest, doc.id, pg.pageNumber, hash)) continue;
+        const dest = join(destDir, `page-${pg.pageNumber}.png`);
+        copyFileSync(pg.path, dest);
         try {
-          log(`extracting ${doc.name} p${pageNumber} (${pageNumber}/${pngs.length})…`);
+          log(`extracting ${doc.name} p${pg.pageNumber}…`);
           const ex = await deps.extract(dest);
-          const pageId = `${doc.id}:${pageNumber}`;
+          const pageId = `${doc.id}:${pg.pageNumber}`;
           deps.repo.upsertPage({
             id: pageId,
             notebookId: doc.id,
-            pageNumber,
+            pageNumber: pg.pageNumber,
             writtenAt: doc.modified || null,
             imagePath: dest,
             extractedText: ex.extracted_text,
@@ -97,12 +90,12 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
             extractedAt: new Date().toISOString(),
           });
           deps.repo.linkEntities(pageId, ex.entities);
-          recordPage(manifest, doc.id, doc.version, pageNumber, hash);
+          recordPage(manifest, doc.id, doc.version, pg.pageNumber, hash);
           summary.pagesExtracted++;
         } catch (err) {
           summary.errors.push({
             docId: doc.id,
-            page: pageNumber,
+            page: pg.pageNumber,
             message: String((err as Error).message),
           });
         }
@@ -112,7 +105,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
     } catch (err) {
       summary.errors.push({ docId: doc.id, message: String((err as Error).message) });
     } finally {
-      rmSync(pdfPath, { force: true });
+      if (archivePath) rmSync(archivePath, { force: true });
     }
   }
   saveManifest(deps.manifestPath, manifest);

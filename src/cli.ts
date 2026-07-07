@@ -151,7 +151,7 @@ async function main() {
       const summary = await runSync({
         repo,
         rmapi: createRmapi(cfg.rmapiBin),
-        renderer: createRenderer(),
+        renderer: createRenderer(cfg.rmcBin, cfg.rsvgBin),
         extract: (img) => extractPage({ imagePath: img, model: cfg.anthropicModel, client }),
         manifestPath: cfg.manifestPath,
         imagesDir: cfg.imagesDir,
@@ -161,8 +161,7 @@ async function main() {
       spin.stop('Sync complete');
       p.log.message(
         `Docs synced: ${summary.docsSynced}, pages extracted: ${summary.pagesExtracted}, ` +
-          `skipped (untagged): ${summary.skippedUntagged}, excluded: ${summary.skippedExcluded.length}, ` +
-          `errors: ${summary.errors.length}`
+          `excluded: ${summary.skippedExcluded.length}, errors: ${summary.errors.length}`
       );
       for (const e of summary.errors)
         p.log.warn(`error: doc ${e.docId}${e.page ? ` page ${e.page}` : ''}: ${e.message}`);
@@ -202,11 +201,13 @@ async function runSetupWizard(): Promise<void> {
   p.intro(pc.bold('rm-brain setup'));
   if (!hasBin(cfg.rmapiBin))
     p.log.warn(
-      `rmapi not found. Install it, then run: ${pc.cyan(cfg.rmapiBin)} (it prompts to pair a one-time code).`
+      `rmapi not found. Install the ddvk sync15 build, then run: ${pc.cyan(cfg.rmapiBin)} (it prompts to pair a one-time code).`
     );
   else p.log.success('rmapi found.');
-  if (!hasBin('pdftoppm')) p.log.warn('poppler not found. Install with: brew install poppler');
-  else p.log.success('poppler found.');
+  if (!hasBin(cfg.rmcBin)) p.log.warn('rmc not found. Install with: pipx install rmc');
+  else p.log.success('rmc found.');
+  if (!hasBin(cfg.rsvgBin)) p.log.warn('rsvg-convert not found. Install with: brew install librsvg');
+  else p.log.success('rsvg-convert found.');
   if (!cfg.anthropicApiKey)
     p.log.warn('Set ANTHROPIC_API_KEY in your environment before running sync.');
   else p.log.success('ANTHROPIC_API_KEY is set.');
