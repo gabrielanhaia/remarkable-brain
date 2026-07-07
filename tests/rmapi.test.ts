@@ -1,14 +1,9 @@
 import { expect, test } from 'vitest';
-import { parseFindPaths, parseStatJson, nameMatchedPaths } from '../src/sync/rmapi.js';
+import { parseFindPaths, parseStatJson } from '../src/sync/rmapi.js';
 
 test('parseFindPaths keeps files, drops directories/root/blanks', () => {
   const stdout = ['/', '/Work Notes', '/German/', '/German/verbs', '/trash/Old', ''].join('\n');
   expect(parseFindPaths(stdout)).toEqual(['/Work Notes', '/German/verbs', '/trash/Old']);
-});
-
-test('nameMatchedPaths matches #brain in the basename only', () => {
-  const all = ['/Acme #brain', '/Work/Plan #Brain', '/Brainstorming', '/Notes'];
-  expect(nameMatchedPaths(all)).toEqual(['/Acme #brain', '/Work/Plan #Brain']);
 });
 
 test('parseStatJson maps metadata and normalizes tags', () => {

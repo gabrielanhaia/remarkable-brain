@@ -14,7 +14,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { resolveConfig, type Config } from './config.js';
+import { resolveConfig, isUnderFolder, type Config } from './config.js';
 import { writeStore } from './store.js';
 import { openDb, migrate, type DB } from './storage/db.js';
 import { Repo } from './storage/repo.js';
@@ -59,28 +59,27 @@ function rmapiPaired(bin: string): boolean {
   }
 }
 
-/** Refresh the remote tree and return the names of opted-in (tag or #brain title) documents. */
-function detectBrainDocs(bin: string): string[] {
+/** Refresh the remote tree and return the paths of documents inside the Brain folder. */
+function detectFolderDocs(bin: string, folder: string): string[] {
   try {
     execFileSync(bin, ['-ni', 'refresh'], { stdio: 'ignore' });
   } catch {
     // refresh is best-effort
   }
-  const lines = (cmd: string[]) => {
-    try {
-      return execFileSync(bin, ['-ni', ...cmd], { encoding: 'utf8', maxBuffer: 1024 * 1024 * 32 })
-        .split('\n')
-        .map((s) => s.trim())
-        .filter((s) => s && s !== '/' && !s.endsWith('/') && !s.startsWith('/trash/'));
-    } catch {
-      return [];
-    }
-  };
-  const tagged = lines(['find', '--compact', '--tag=brain']);
-  const named = lines(['find', '--compact', '/']).filter((pth) =>
-    /#brain\b/i.test(pth.split('/').pop() ?? '')
-  );
-  return [...new Set([...tagged, ...named])];
+  try {
+    return execFileSync(bin, ['-ni', 'find', '--compact', '/'], {
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024 * 32,
+    })
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(
+        (s) =>
+          s && s !== '/' && !s.endsWith('/') && !s.startsWith('/trash/') && isUnderFolder(s, folder)
+      );
+  } catch {
+    return [];
+  }
 }
 
 function claudeConfigPath(): string {
@@ -119,6 +118,7 @@ async function doSync(cfg: Config, repo: Repo): Promise<SyncSummary> {
     rmapi: createRmapi(cfg.rmapiBin),
     renderer: createRenderer(cfg.rmcBin, cfg.rsvgBin),
     extract: (img) => extractPage({ imagePath: img, model: cfg.anthropicModel, client }),
+    brainFolder: cfg.brainFolder,
     manifestPath: cfg.manifestPath,
     imagesDir: cfg.imagesDir,
     tmpDir: cfg.home,
@@ -127,8 +127,10 @@ async function doSync(cfg: Config, repo: Repo): Promise<SyncSummary> {
   spin.stop('Sync complete');
   p.log.message(
     `Docs synced: ${summary.docsSynced}, pages extracted: ${summary.pagesExtracted}, ` +
-      `excluded: ${summary.skippedExcluded.length}, errors: ${summary.errors.length}`
+      `pruned: ${summary.pruned.length}, excluded: ${summary.skippedExcluded.length}, ` +
+      `errors: ${summary.errors.length}`
   );
+  for (const name of summary.pruned) p.log.message(pc.dim(`  removed: ${name}`));
   for (const e of summary.errors)
     p.log.warn(`error: doc ${e.docId}${e.page ? ` page ${e.page}` : ''}: ${e.message}`);
   return summary;
@@ -343,23 +345,23 @@ async function runSetupWizard(): Promise<void> {
     }
   }
 
-  // 4) Tag guidance + detection loop
+  // 4) Folder guidance + detection loop
   let found: string[] = [];
   if (hasBin(cfg.rmapiBin) && rmapiPaired(cfg.rmapiBin)) {
     p.note(
-      'Two ways to opt a notebook in:\n' +
-        '  • Tag it "brain" on the tablet (long-press notebook → Add tag), or\n' +
-        '  • Put "#brain" in the notebook title.\n' +
-        'Then make sure the tablet syncs (Wi-Fi).',
-      'Mark a notebook for indexing'
+      `On the tablet, create a folder named "${cfg.brainFolder.replace(/^\//, '')}" ` +
+        `(case-insensitive) and move the notebooks you want indexed into it.\n` +
+        `Everything inside it gets indexed; remove a notebook from it and the next sync\n` +
+        `drops it from your local index. Then let the tablet sync (Wi-Fi).`,
+      'Your Brain folder'
     );
     for (;;) {
-      const check = await p.confirm({ message: 'Check now for opted-in notebooks?' });
+      const check = await p.confirm({ message: 'Check now for notebooks in the Brain folder?' });
       if (p.isCancel(check) || !check) break;
       const spin = p.spinner();
       spin.start('Refreshing and searching…');
-      found = detectBrainDocs(cfg.rmapiBin);
-      spin.stop(`Found ${found.length} notebook(s).`);
+      found = detectFolderDocs(cfg.rmapiBin, cfg.brainFolder);
+      spin.stop(`Found ${found.length} notebook(s) in ${cfg.brainFolder}.`);
       if (found.length) {
         for (const f of found) p.log.message(`  • ${f}`);
         break;
@@ -367,7 +369,7 @@ async function runSetupWizard(): Promise<void> {
       const next = await p.select({
         message: 'None found yet. What next?',
         options: [
-          { value: 'retry', label: 'I just tagged/renamed one — check again' },
+          { value: 'retry', label: 'I just moved notebooks in — check again' },
           { value: 'skip', label: 'Skip for now' },
         ],
       });

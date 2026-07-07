@@ -47,3 +47,8 @@ export function recordPage(
   doc.version = version;
   doc.pages[pageNumber] = hash;
 }
+
+/** Drop a document from the manifest (used when it leaves the Brain folder). */
+export function forgetDoc(m: Manifest, docId: string): void {
+  delete m.docs[docId];
+}

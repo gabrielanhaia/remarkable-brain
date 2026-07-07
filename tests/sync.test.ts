@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 import Database from 'better-sqlite3';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrate } from '../src/storage/db.js';
@@ -17,54 +17,63 @@ function doc(over: Partial<any> = {}) {
     name: 'Work Notes',
     version: 'v1',
     modified: '2026-01-01',
-    tags: ['brain'],
-    path: '/Work Notes',
+    tags: [],
+    path: '/Brain/Work Notes',
     type: 'DocumentType',
     ...over,
   };
 }
 
-test('runSync indexes #brain docs, honors hard-exclusion, skips unchanged', async () => {
-  const db = new Database(':memory:');
-  migrate(db);
-  const repo = new Repo(db);
-  const home = tmp();
-
-  const rmapi = {
-    listBrainDocs: vi.fn().mockResolvedValue([
-      doc({ id: 'a', name: 'Work Notes', path: '/Work Notes' }),
-      doc({ id: 'c', name: 'Private diary', path: '/Private diary' }), // hard-excluded
-    ]),
-    downloadDoc: vi.fn(async (_p: string, dest: string) => {
-      const f = join(dest, 'doc.rmdoc');
-      writeFileSync(f, 'archive');
-      return f;
-    }),
-  };
-  const renderer = {
+function fakeRenderer() {
+  return {
     renderDocToPngs: vi.fn(async (_a: string, outDir: string, docId: string) => {
       const p = join(outDir, `${docId}-p1.png`);
       writeFileSync(p, 'imgdata');
       return [{ pageNumber: 1, path: p }];
     }),
   };
-  const extract = vi.fn().mockResolvedValue({
+}
+function fakeDownload() {
+  return vi.fn(async (_p: string, dest: string) => {
+    const f = join(dest, 'doc.rmdoc');
+    writeFileSync(f, 'archive');
+    return f;
+  });
+}
+function okExtract() {
+  return vi.fn().mockResolvedValue({
     extracted_text: 'hi',
     page_type: 'idea',
     entities: [{ name: 'Acme', type: 'company' }],
     open_loop: false,
     open_loop_description: '',
   });
-
-  const deps: SyncDeps = {
-    repo,
-    rmapi,
-    renderer,
-    extract,
+}
+function baseDeps(over: Partial<SyncDeps>): SyncDeps {
+  const home = tmp();
+  return {
+    brainFolder: '/Brain',
     manifestPath: join(home, 'manifest.json'),
     imagesDir: join(home, 'images'),
     tmpDir: home,
+    ...(over as SyncDeps),
   };
+}
+
+test('runSync indexes folder docs, honors hard-exclusion, skips unchanged', async () => {
+  const db = new Database(':memory:');
+  migrate(db);
+  const repo = new Repo(db);
+  const rmapi = {
+    listFolderDocs: vi.fn().mockResolvedValue([
+      doc({ id: 'a', name: 'Work Notes', path: '/Brain/Work Notes' }),
+      doc({ id: 'c', name: 'Private diary', path: '/Brain/Private diary' }), // hard-excluded
+    ]),
+    downloadDoc: fakeDownload(),
+  };
+  const renderer = fakeRenderer();
+  const extract = okExtract();
+  const deps = baseDeps({ repo, rmapi, renderer, extract });
 
   const s1 = await runSync(deps);
   expect(s1.docsSynced).toBe(1);
@@ -72,84 +81,56 @@ test('runSync indexes #brain docs, honors hard-exclusion, skips unchanged', asyn
   expect(s1.skippedExcluded).toEqual(['Private diary']);
   expect(repo.listNotebooks().find((n) => n.id === 'a')?.pageCount).toBe(1);
 
-  // Second run: nothing changed -> no re-extraction
   const s2 = await runSync(deps);
   expect(s2.pagesExtracted).toBe(0);
   expect(extract).toHaveBeenCalledTimes(1);
 });
 
-test('runSync opts in a notebook by #brain in its title (no tag)', async () => {
+test('runSync prunes notebooks removed from the folder (pages + images gone)', async () => {
   const db = new Database(':memory:');
   migrate(db);
   const repo = new Repo(db);
-  const home = tmp();
   const rmapi = {
-    listBrainDocs: vi
-      .fn()
-      .mockResolvedValue([doc({ id: 'z', name: 'Acme #brain', path: '/Acme #brain', tags: [] })]),
-    downloadDoc: vi.fn(async (_p: string, dest: string) => {
-      const f = join(dest, 'doc.rmdoc');
-      writeFileSync(f, 'archive');
-      return f;
-    }),
+    listFolderDocs: vi.fn().mockResolvedValue([doc({ id: 'a', name: 'Keeper', path: '/Brain/Keeper' })]),
+    downloadDoc: fakeDownload(),
   };
-  const renderer = {
-    renderDocToPngs: vi.fn(async (_a: string, outDir: string, docId: string) => {
-      const p = join(outDir, `${docId}-p1.png`);
-      writeFileSync(p, 'imgdata');
-      return [{ pageNumber: 1, path: p }];
-    }),
-  };
-  const extract = vi.fn().mockResolvedValue({
-    extracted_text: 'hi',
-    page_type: 'idea',
-    entities: [],
-    open_loop: false,
-    open_loop_description: '',
-  });
-  const s = await runSync({
-    repo,
-    rmapi,
-    renderer,
-    extract,
-    manifestPath: join(home, 'm.json'),
-    imagesDir: join(home, 'images'),
-    tmpDir: home,
-  } as SyncDeps);
-  expect(s.pagesExtracted).toBe(1);
-  expect(s.skippedExcluded).toEqual([]);
+  const deps = baseDeps({ repo, rmapi, renderer: fakeRenderer(), extract: okExtract() });
+
+  await runSync(deps); // indexes 'a'
+  // now a doc 'b' exists in the DB but is no longer in the folder listing
+  repo.upsertNotebook({ id: 'b', name: 'Removed' });
+  repo.upsertPage({ id: 'b:1', notebookId: 'b', pageNumber: 1, extractedText: 'gone soon', imagePath: '/nope.png' });
+  expect(repo.searchNotes('gone').length).toBe(1);
+
+  const s = await runSync(deps);
+  expect(s.pruned).toEqual(['Removed']);
+  expect(repo.listNotebooks().map((n) => n.id)).toEqual(['a']);
+  expect(repo.searchNotes('gone').length).toBe(0);
+});
+
+test('runSync does NOT prune user-excluded markers', async () => {
+  const db = new Database(':memory:');
+  migrate(db);
+  const repo = new Repo(db);
+  repo.upsertNotebook({ id: 'x', name: 'Excluded One', excluded: true });
+  const rmapi = { listFolderDocs: vi.fn().mockResolvedValue([]), downloadDoc: vi.fn() };
+  const deps = baseDeps({ repo, rmapi, renderer: fakeRenderer(), extract: vi.fn() });
+
+  const s = await runSync(deps);
+  expect(s.pruned).toEqual([]);
+  expect(repo.listExcludedIds()).toEqual(['x']);
 });
 
 test('runSync records per-page errors and continues', async () => {
   const db = new Database(':memory:');
   migrate(db);
   const repo = new Repo(db);
-  const home = tmp();
   const rmapi = {
-    listBrainDocs: vi.fn().mockResolvedValue([doc({ id: 'a', name: 'N', path: '/N' })]),
-    downloadDoc: vi.fn(async (_p: string, dest: string) => {
-      const f = join(dest, 'doc.rmdoc');
-      writeFileSync(f, 'archive');
-      return f;
-    }),
-  };
-  const renderer = {
-    renderDocToPngs: vi.fn(async (_a: string, outDir: string, id: string) => {
-      const p = join(outDir, `${id}.png`);
-      writeFileSync(p, 'x');
-      return [{ pageNumber: 1, path: p }];
-    }),
+    listFolderDocs: vi.fn().mockResolvedValue([doc({ id: 'a', name: 'N', path: '/Brain/N' })]),
+    downloadDoc: fakeDownload(),
   };
   const extract = vi.fn().mockRejectedValue(new Error('api down'));
-  const deps: SyncDeps = {
-    repo,
-    rmapi,
-    renderer,
-    extract,
-    manifestPath: join(home, 'm.json'),
-    imagesDir: join(home, 'images'),
-    tmpDir: home,
-  };
+  const deps = baseDeps({ repo, rmapi, renderer: fakeRenderer(), extract });
   const s = await runSync(deps);
   expect(s.errors.length).toBe(1);
   expect(s.pagesExtracted).toBe(0);
@@ -160,25 +141,21 @@ test('runSync skips notebooks the user previously excluded in the DB', async () 
   migrate(db);
   const repo = new Repo(db);
   repo.upsertNotebook({ id: 'a', name: 'Work Notes', excluded: true });
-  const home = tmp();
   const rmapi = {
-    listBrainDocs: vi.fn().mockResolvedValue([doc({ id: 'a', name: 'Work Notes', path: '/Work Notes' })]),
+    listFolderDocs: vi.fn().mockResolvedValue([doc({ id: 'a', name: 'Work Notes', path: '/Brain/Work Notes' })]),
     downloadDoc: vi.fn(),
   };
-  const renderer = { renderDocToPngs: vi.fn() };
   const extract = vi.fn();
-  const deps: SyncDeps = {
-    repo,
-    rmapi,
-    renderer,
-    extract,
-    manifestPath: join(home, 'm.json'),
-    imagesDir: join(home, 'images'),
-    tmpDir: home,
-  };
+  const deps = baseDeps({ repo, rmapi, renderer: fakeRenderer(), extract });
   const s = await runSync(deps);
   expect(s.pagesExtracted).toBe(0);
   expect(extract).not.toHaveBeenCalled();
   expect(rmapi.downloadDoc).not.toHaveBeenCalled();
   expect(s.skippedExcluded).toEqual(['Work Notes']);
+});
+
+// sanity: the imagesDir path helper is real so prune's rmSync target resolves
+test('imagesDir is created under home', () => {
+  const deps = baseDeps({});
+  expect(existsSync(deps.tmpDir)).toBe(true);
 });

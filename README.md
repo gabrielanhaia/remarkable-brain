@@ -13,7 +13,7 @@ service, using your existing Claude subscription.
 
 ```
 reMarkable Cloud
-   │  rmapi (find --tag=brain + stat + get)
+   │  rmapi (list the Brain folder + stat + get)
    ▼
 .rmdoc archive  ──rmc──►  per-page SVG  ──rsvg-convert──►  page PNGs
                                                               │  Extraction (Claude vision, 1 call/page)
@@ -49,17 +49,19 @@ Because the whole index is that one self-contained folder:
   backs itself up continuously.
 - `rm-brain info` shows exactly where the data lives and how big it is.
 
-## Privacy model — opt-in
+## Privacy model — opt-in by folder
 
-- **Nothing is indexed unless you opt a notebook in**, one of two ways: tag it `brain` on the
-  tablet, **or** put `#brain` in its title. The safe default is "do nothing"; sending a
-  notebook to Claude requires a deliberate act. (The title route is handy when device tags
-  are slow to sync.)
+- **Nothing is indexed unless you put the notebook in your Brain folder.** Create a folder
+  named `Brain` (case-insensitive; configurable via `RM_BRAIN_FOLDER`) on the tablet and move
+  notebooks into it. The safe default is "do nothing"; indexing a notebook requires a
+  deliberate move.
+- **The folder is the source of truth.** Remove a notebook from the folder (or delete it) and
+  the next `sync` **prunes it** from your local index — pages and images included.
 - **Hard exclusion always wins:** a notebook whose name matches `/^\./`, `/private/i`, or
-  `/noindex/i` is skipped entirely — never exported, extracted, or sent anywhere — even if
-  it also carries `#brain`.
+  `/noindex/i` is skipped entirely — never exported, extracted, or sent anywhere — even inside
+  the Brain folder.
 - `rm-brain exclude "<name>"` excludes a notebook after the fact **and purges** its already
-  indexed pages and images.
+  indexed pages and images (and keeps it excluded on future syncs).
 - `rm-brain purge` deletes the entire local index.
 
 ## Prerequisites
@@ -113,7 +115,7 @@ Desktop:
 
 ## Usage
 
-1. On the tablet, tag a notebook `#brain` (and let it sync to the reMarkable cloud).
+1. On the tablet, move a notebook into your `Brain` folder (and let it sync to the reMarkable cloud).
 2. Index it:
    ```bash
    export ANTHROPIC_API_KEY=sk-ant-...
@@ -141,6 +143,7 @@ Desktop:
 | Env var | Default | Purpose |
 | --- | --- | --- |
 | `RM_BRAIN_HOME` | `~/.rm-brain` | Where all local data lives |
+| `RM_BRAIN_FOLDER` | `/Brain` | reMarkable folder whose notebooks get indexed (case-insensitive) |
 | `RMAPI_BIN` | `rmapi` | Path/name of the rmapi binary (ddvk sync15 build) |
 | `RMC_BIN` | `rmc` | Path/name of the rmc renderer |
 | `RSVG_BIN` | `rsvg-convert` | Path/name of rsvg-convert (SVG→PNG) |

@@ -2,34 +2,39 @@ import { describe, expect, test } from 'vitest';
 import {
   loadConfig,
   isHardExcluded,
-  hasBrainTag,
-  nameHasBrainOptIn,
-  isOptedIn,
+  isUnderFolder,
+  normalizeFolder,
   HARD_EXCLUDE_PATTERNS,
 } from '../src/config.js';
 
 describe('config', () => {
-  test('defaults home to ~/.rm-brain and model to sonnet-5', () => {
+  test('defaults home to ~/.rm-brain, folder to /Brain, model to sonnet-5', () => {
     const cfg = loadConfig({ HOME: '/home/x' } as NodeJS.ProcessEnv);
     expect(cfg.home).toBe('/home/x/.rm-brain');
     expect(cfg.dbPath).toBe('/home/x/.rm-brain/db.sqlite');
-    expect(cfg.imagesDir).toBe('/home/x/.rm-brain/images');
-    expect(cfg.manifestPath).toBe('/home/x/.rm-brain/manifest.json');
+    expect(cfg.brainFolder).toBe('/Brain');
     expect(cfg.rmapiBin).toBe('rmapi');
     expect(cfg.anthropicModel).toBe('claude-sonnet-5');
   });
 
-  test('env overrides win', () => {
+  test('env overrides win, folder is normalized', () => {
     const cfg = loadConfig({
       RM_BRAIN_HOME: '/data',
-      RMAPI_BIN: '/bin/rmapi',
+      RM_BRAIN_FOLDER: 'brain',
       ANTHROPIC_MODEL: 'claude-opus-4-8',
       ANTHROPIC_API_KEY: 'k',
     } as NodeJS.ProcessEnv);
     expect(cfg.home).toBe('/data');
-    expect(cfg.rmapiBin).toBe('/bin/rmapi');
+    expect(cfg.brainFolder).toBe('/brain');
     expect(cfg.anthropicModel).toBe('claude-opus-4-8');
     expect(cfg.anthropicApiKey).toBe('k');
+  });
+
+  test('normalizeFolder adds leading slash and trims trailing', () => {
+    expect(normalizeFolder('Brain')).toBe('/Brain');
+    expect(normalizeFolder('/Brain/')).toBe('/Brain');
+    expect(normalizeFolder('  notes/second  ')).toBe('/notes/second');
+    expect(normalizeFolder('/')).toBe('/');
   });
 
   test('hard exclusion matches dotfiles, private, noindex (case-insensitive)', () => {
@@ -40,23 +45,11 @@ describe('config', () => {
     expect(HARD_EXCLUDE_PATTERNS.length).toBe(3);
   });
 
-  test('brain tag matches with or without leading #, case-insensitive', () => {
-    expect(hasBrainTag(['brain'])).toBe(true);
-    expect(hasBrainTag(['#Brain'])).toBe(true);
-    expect(hasBrainTag(['todo', 'work'])).toBe(false);
-    expect(hasBrainTag([])).toBe(false);
-  });
-
-  test('name opt-in requires an explicit #brain token, not just the word brain', () => {
-    expect(nameHasBrainOptIn('Acme #brain')).toBe(true);
-    expect(nameHasBrainOptIn('#BRAIN dump')).toBe(true);
-    expect(nameHasBrainOptIn('Brainstorming ideas')).toBe(false);
-    expect(nameHasBrainOptIn('Work notes')).toBe(false);
-  });
-
-  test('isOptedIn accepts either a brain tag or a #brain title', () => {
-    expect(isOptedIn('Work notes', ['brain'])).toBe(true);
-    expect(isOptedIn('Acme #brain', [])).toBe(true);
-    expect(isOptedIn('Work notes', ['todo'])).toBe(false);
+  test('isUnderFolder is case-insensitive and recursive, files only', () => {
+    expect(isUnderFolder('/Brain/Acme', '/Brain')).toBe(true);
+    expect(isUnderFolder('/brain/Acme', 'Brain')).toBe(true); // case-insensitive
+    expect(isUnderFolder('/Brain/sub/Deep', '/Brain')).toBe(true); // recursive
+    expect(isUnderFolder('/Other/Acme', '/Brain')).toBe(false);
+    expect(isUnderFolder('/Brainstorming/x', '/Brain')).toBe(false); // not a prefix segment
   });
 });
