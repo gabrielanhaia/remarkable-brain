@@ -1,7 +1,13 @@
 import { beforeEach, expect, test } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../src/storage/db.js';
-import { Repo } from '../src/storage/repo.js';
+import { Repo, toFtsQuery } from '../src/storage/repo.js';
+
+test('toFtsQuery quotes tokens and drops FTS operator characters', () => {
+  expect(toFtsQuery('08/07')).toBe('"08" "07"');
+  expect(toFtsQuery('Alex: pricing*')).toBe('"Alex" "pricing"');
+  expect(toFtsQuery('   ')).toBe('');
+});
 
 let repo: Repo;
 beforeEach(() => {
@@ -39,6 +45,13 @@ test('searchNotes returns receipts', () => {
   expect(hits.length).toBe(2);
   expect(hits[0]).toHaveProperty('notebookName', 'Work Notes');
   expect(hits[0]).toHaveProperty('pageNumber');
+});
+
+test('searchNotes does not crash on FTS operator characters', () => {
+  repo.upsertPage({ id: 'p3', notebookId: 'n1', pageNumber: 3, extractedText: '08/07 buy rice', openLoop: true });
+  expect(() => repo.searchNotes('08/07')).not.toThrow();
+  expect(repo.searchNotes('08/07').length).toBe(1);
+  expect(repo.searchNotes('   ')).toEqual([]);
 });
 
 test('getEntityTimeline is chronological', () => {

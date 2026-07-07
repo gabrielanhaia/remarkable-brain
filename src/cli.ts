@@ -252,6 +252,19 @@ async function main() {
       p.outro('Done. Ask Claude Desktop about your notes, or `rm-brain search "..."`.');
       break;
     }
+    case 'reindex': {
+      const { cfg, repo } = openRepo();
+      if (!cfg.anthropicApiKey) {
+        p.log.error('No Anthropic API key. Run `rm-brain setup` to save one, or set ANTHROPIC_API_KEY.');
+        process.exit(1);
+      }
+      p.intro(pc.bold('rm-brain reindex'));
+      rmSync(cfg.manifestPath, { force: true }); // forget all hashes → re-extract every in-folder page
+      p.log.message('Cleared change-detection state; re-extracting all notebooks in the Brain folder…');
+      await doSync(cfg, repo);
+      p.outro('Reindex complete.');
+      break;
+    }
     case 'setup': {
       await runSetupWizard();
       break;
@@ -266,7 +279,8 @@ async function main() {
           `${pc.bold('rm-brain')} <command>`,
           '',
           `  ${pc.green('setup')}            one-command guided setup (start here)`,
-          '  sync             pull #brain notebooks and index them',
+          '  sync             pull Brain-folder notebooks and index them',
+          '  reindex          re-extract all indexed pages (after a prompt/model change)',
           '  search <query>   full-text search in the terminal',
           '  list             show indexed notebooks',
           '  info             show where data lives + stats',

@@ -38,11 +38,14 @@ export const EXTRACTION_TOOL = {
       },
       open_loop: {
         type: 'boolean',
-        description: 'True if the page poses an unresolved question or follow-up.',
+        description:
+          'True if the page contains anything the user still needs to act on: a to-do or ' +
+          'checklist, things to buy/get, a task, a reminder, a question, a "follow up on X", ' +
+          'or an unresolved decision.',
       },
       open_loop_description: {
         type: 'string',
-        description: 'Short description of the open loop, empty if none.',
+        description: 'Short summary of the outstanding item(s); empty if none.',
       },
     },
     required: ['extracted_text', 'page_type', 'entities', 'open_loop', 'open_loop_description'],
@@ -51,6 +54,10 @@ export const EXTRACTION_TOOL = {
 
 export const EXTRACTION_PROMPT =
   'Transcribe this handwritten reMarkable page to plain text and classify it. ' +
+  'Preserve any dates exactly as written (e.g. "08/07"). ' +
   'Identify people, projects, companies, and topics as entities. ' +
-  'Set open_loop=true only if the page poses a question, a "follow up on X", or an unresolved decision ' +
-  'that is not clearly resolved on the page itself. Respond by calling the record_page tool.';
+  'Set open_loop=true if the page contains anything the user still needs to act on: a to-do or ' +
+  'checklist, things to buy or get, a task, a reminder, a question, a "follow up on X", or an ' +
+  'unresolved decision. Set open_loop=false only for purely informational or already-completed ' +
+  'content (finished journaling, reference material). When open_loop is true, summarize the ' +
+  'outstanding item(s) in open_loop_description. Respond by calling the record_page tool.';
