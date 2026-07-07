@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { BRAIN_TAG, isHardExcluded, isOptedIn } from '../config.js';
+import { isHardExcluded } from '../config.js';
 import type { Repo } from '../storage/repo.js';
 import type { Rmapi } from './rmapi.js';
 import type { Renderer } from './render.js';
@@ -12,6 +12,7 @@ import {
   docChanged,
   pageChanged,
   recordPage,
+  forgetDoc,
 } from './manifest.js';
 
 export interface SyncDeps {
@@ -19,6 +20,7 @@ export interface SyncDeps {
   rmapi: Rmapi;
   renderer: Renderer;
   extract: (imagePath: string) => Promise<PageExtraction>;
+  brainFolder: string;
   manifestPath: string;
   imagesDir: string;
   tmpDir: string;
@@ -29,6 +31,7 @@ export interface SyncSummary {
   docsSynced: number;
   pagesExtracted: number;
   skippedExcluded: string[];
+  pruned: string[];
   errors: { docId: string; page?: number; message: string }[];
 }
 
@@ -41,18 +44,22 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
     docsSynced: 0,
     pagesExtracted: 0,
     skippedExcluded: [],
+    pruned: [],
     errors: [],
   };
 
-  // Opt-in: only #brain-tagged documents are ever fetched.
-  const docs = await deps.rmapi.listBrainDocs(BRAIN_TAG);
+  // Opt-in: only documents inside the Brain folder are ever fetched.
+  const docs = await deps.rmapi.listFolderDocs(deps.brainFolder);
+  const keep = new Set<string>(); // ids that should remain indexed after this run
+
   for (const doc of docs) {
     summary.docsConsidered++;
-    // Hard exclusion (name convention), prior user exclusion, or a missing tag all win over opt-in.
-    if (isHardExcluded(doc.name) || excludedIds.has(doc.id) || !isOptedIn(doc.name, doc.tags)) {
+    // Hard exclusion (name convention) and prior user exclusion both win, even inside the folder.
+    if (isHardExcluded(doc.name) || excludedIds.has(doc.id)) {
       summary.skippedExcluded.push(doc.name);
       continue;
     }
+    keep.add(doc.id);
     if (!docChanged(manifest, doc.id, doc.version)) {
       log(`unchanged: ${doc.name}`);
       continue;
@@ -108,6 +115,19 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
       if (archivePath) rmSync(archivePath, { force: true });
     }
   }
+
+  // Prune: anything previously indexed that's no longer in the Brain folder gets removed
+  // (pages, images, manifest). User-excluded markers are left intact.
+  for (const nb of deps.repo.listNotebooks()) {
+    if (nb.excluded || keep.has(nb.id)) continue;
+    log(`removing ${nb.name} (no longer in ${deps.brainFolder})…`);
+    const imgs = deps.repo.purgeNotebook(nb.id);
+    for (const img of imgs) rmSync(img, { force: true });
+    rmSync(join(deps.imagesDir, nb.id), { recursive: true, force: true });
+    forgetDoc(manifest, nb.id);
+    summary.pruned.push(nb.name);
+  }
+
   saveManifest(deps.manifestPath, manifest);
   return summary;
 }

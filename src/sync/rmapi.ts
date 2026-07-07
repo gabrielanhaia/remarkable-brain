@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { isUnderFolder } from '../config.js';
 const pexec = promisify(execFile);
 
 export interface RmDoc {
@@ -14,15 +15,10 @@ export interface RmDoc {
   type: string;
 }
 export interface Rmapi {
-  /** Documents opted in by tag `brainTag` OR by `#brain` in the title, excluding trash. */
-  listBrainDocs(brainTag: string): Promise<RmDoc[]>;
+  /** All documents inside `folder` (recursively, case-insensitive), excluding trash. */
+  listFolderDocs(folder: string): Promise<RmDoc[]>;
   /** Download a document to destDir; returns the path to the produced `.rmdoc` archive. */
   downloadDoc(remotePath: string, destDir: string): Promise<string>;
-}
-
-/** Filenames (basenames of find paths) that carry an explicit `#brain` opt-in token. */
-export function nameMatchedPaths(allPaths: string[]): string[] {
-  return allPaths.filter((p) => /#brain\b/i.test(p.split('/').pop() ?? ''));
 }
 
 /** Parse `rmapi find --compact` output: one path per line; directories end with '/'. */
@@ -64,12 +60,11 @@ export function createRmapi(bin: string): Rmapi {
     pexec(bin, ['-ni', ...args], { maxBuffer: 1024 * 1024 * 128, cwd: opts.cwd });
 
   return {
-    async listBrainDocs(brainTag: string): Promise<RmDoc[]> {
-      const { stdout: tagged } = await run(['find', '--compact', `--tag=${brainTag}`]);
-      const { stdout: all } = await run(['find', '--compact', '/']);
-      const byTag = parseFindPaths(tagged);
-      const byName = nameMatchedPaths(parseFindPaths(all));
-      const paths = [...new Set([...byTag, ...byName])].filter((p) => !p.startsWith('/trash/'));
+    async listFolderDocs(folder: string): Promise<RmDoc[]> {
+      const { stdout } = await run(['find', '--compact', '/']);
+      const paths = parseFindPaths(stdout).filter(
+        (p) => !p.startsWith('/trash/') && isUnderFolder(p, folder)
+      );
       const docs: RmDoc[] = [];
       for (const p of paths) {
         try {

@@ -9,7 +9,7 @@ import { join } from 'node:path';
 export interface StoredConfig {
   anthropicApiKey?: string;
   anthropicModel?: string;
-  optInMode?: 'tag-or-name';
+  brainFolder?: string;
 }
 
 export function storePath(home: string): string {
