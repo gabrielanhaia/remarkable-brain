@@ -86,6 +86,43 @@ test('runSync indexes folder docs, honors hard-exclusion, skips unchanged', asyn
   expect(extract).toHaveBeenCalledTimes(1);
 });
 
+test('runSync re-syncs when ModifiedClient changes (Version stays 0) and extracts new pages', async () => {
+  const db = new Database(':memory:');
+  migrate(db);
+  const repo = new Repo(db);
+
+  const rmapi = { listFolderDocs: vi.fn(), downloadDoc: fakeDownload() };
+  // Version is constant '0' (reMarkable never bumps it); only `modified` changes on edit.
+  rmapi.listFolderDocs
+    .mockResolvedValueOnce([doc({ id: 'a', name: 'Notes', version: '0', modified: 't1' })])
+    .mockResolvedValueOnce([doc({ id: 'a', name: 'Notes', version: '0', modified: 't2' })]);
+
+  let call = 0;
+  const renderer = {
+    renderDocToPngs: vi.fn(async (_a: string, outDir: string, docId: string) => {
+      call++;
+      const p1 = join(outDir, `${docId}-p1.png`);
+      writeFileSync(p1, 'page-one-stable');
+      const pages = [{ pageNumber: 1, path: p1 }];
+      if (call >= 2) {
+        const p2 = join(outDir, `${docId}-p2.png`);
+        writeFileSync(p2, 'page-two-new');
+        pages.push({ pageNumber: 2, path: p2 });
+      }
+      return pages;
+    }),
+  };
+  const deps = baseDeps({ repo, rmapi, renderer, extract: okExtract() });
+
+  const s1 = await runSync(deps);
+  expect(s1.pagesExtracted).toBe(1);
+
+  const s2 = await runSync(deps); // modified t1 -> t2 forces re-download; page 1 unchanged, page 2 new
+  expect(rmapi.downloadDoc).toHaveBeenCalledTimes(2);
+  expect(s2.pagesExtracted).toBe(1); // only the new page 2
+  expect(repo.listNotebooks().find((n) => n.id === 'a')?.pageCount).toBe(2);
+});
+
 test('runSync prunes notebooks removed from the folder (pages + images gone)', async () => {
   const db = new Database(':memory:');
   migrate(db);
