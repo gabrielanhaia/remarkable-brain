@@ -1,6 +1,19 @@
+# Dependencies & build
 node_modules/
 dist/
-.env
-*.sqlite
-.rm-brain/
 coverage/
+
+# Secrets — never commit (the API key lives in an env file or the local store)
+.env
+.env.*
+!.env.example
+config.json
+rmapi.conf
+*.pem
+*.key
+
+# Local data home (SQLite DB, page images, manifest, stored config with the API key)
+.rm-brain/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
