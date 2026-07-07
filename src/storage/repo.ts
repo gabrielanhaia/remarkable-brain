@@ -1,5 +1,15 @@
 import type { DB } from './db.js';
 
+/**
+ * Turn arbitrary user text into a safe FTS5 MATCH expression. FTS5 treats characters like
+ * `/ " : * ( ) -` as operators, so raw queries (e.g. "08/07") throw a syntax error. We extract
+ * word/number tokens and quote each one, giving implicit-AND matching with no injection risk.
+ */
+export function toFtsQuery(raw: string): string {
+  const tokens = raw.match(/[\p{L}\p{N}]+/gu) ?? [];
+  return tokens.map((t) => `"${t}"`).join(' ');
+}
+
 export interface PageRecord {
   id: string;
   notebookId: string;
@@ -123,6 +133,8 @@ export class Repo {
   }
 
   searchNotes(query: string, limit = 20): SearchHit[] {
+    const match = toFtsQuery(query);
+    if (!match) return [];
     return this.db
       .prepare(
         `SELECT p.id AS pageId, n.name AS notebookName, p.page_number AS pageNumber,
@@ -134,7 +146,7 @@ export class Repo {
          WHERE pages_fts MATCH ? AND n.excluded = 0
          ORDER BY rank LIMIT ?`
       )
-      .all(query, limit) as SearchHit[];
+      .all(match, limit) as SearchHit[];
   }
 
   getPage(pageId: string): PageFull | undefined {
