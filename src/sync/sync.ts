@@ -60,7 +60,9 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
       continue;
     }
     keep.add(doc.id);
-    if (!docChanged(manifest, doc.id, doc.version)) {
+    // reMarkable's new sync leaves Version at 0 forever; ModifiedClient is the real change signal.
+    const changeKey = doc.modified || doc.version;
+    if (!docChanged(manifest, doc.id, changeKey)) {
       log(`unchanged: ${doc.name}`);
       continue;
     }
@@ -97,7 +99,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
             extractedAt: new Date().toISOString(),
           });
           deps.repo.linkEntities(pageId, ex.entities);
-          recordPage(manifest, doc.id, doc.version, pg.pageNumber, hash);
+          recordPage(manifest, doc.id, changeKey, pg.pageNumber, hash);
           summary.pagesExtracted++;
         } catch (err) {
           summary.errors.push({

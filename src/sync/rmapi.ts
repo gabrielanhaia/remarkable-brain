@@ -61,6 +61,11 @@ export function createRmapi(bin: string): Rmapi {
 
   return {
     async listFolderDocs(folder: string): Promise<RmDoc[]> {
+      try {
+        await run(['refresh']); // pull the latest cloud tree before listing
+      } catch {
+        // refresh is best-effort; a stale tree still lists, just possibly out of date
+      }
       const { stdout } = await run(['find', '--compact', '/']);
       const paths = parseFindPaths(stdout).filter(
         (p) => !p.startsWith('/trash/') && isUnderFolder(p, folder)
