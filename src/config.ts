@@ -1,5 +1,6 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { readStore } from './store.js';
 
 export const BRAIN_TAG = 'brain';
 export const HARD_EXCLUDE_PATTERNS: RegExp[] = [/^\./, /private/i, /noindex/i];
@@ -31,10 +32,34 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   };
 }
 
+/**
+ * Config with the persisted store merged in. Precedence: env var > stored value > default.
+ * Use this everywhere except unit tests that want pure env behavior (they call loadConfig).
+ */
+export function resolveConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const base = loadConfig(env);
+  const store = readStore(base.home);
+  return {
+    ...base,
+    anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() || store.anthropicApiKey || undefined,
+    anthropicModel: env.ANTHROPIC_MODEL?.trim() || store.anthropicModel || 'claude-sonnet-5',
+  };
+}
+
 export function isHardExcluded(name: string): boolean {
   return HARD_EXCLUDE_PATTERNS.some((re) => re.test(name));
 }
 
 export function hasBrainTag(tags: string[]): boolean {
   return tags.some((t) => t.replace(/^#/, '').trim().toLowerCase() === BRAIN_TAG);
+}
+
+/** Name-based opt-in: an explicit `#brain` token in the title (not just any word containing "brain"). */
+export function nameHasBrainOptIn(name: string): boolean {
+  return /#brain\b/i.test(name);
+}
+
+/** A document is opted in if it carries the `brain` tag OR has `#brain` in its title. */
+export function isOptedIn(name: string, tags: string[]): boolean {
+  return hasBrainTag(tags) || nameHasBrainOptIn(name);
 }

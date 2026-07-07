@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { loadConfig, isHardExcluded, hasBrainTag, HARD_EXCLUDE_PATTERNS } from '../src/config.js';
+import {
+  loadConfig,
+  isHardExcluded,
+  hasBrainTag,
+  nameHasBrainOptIn,
+  isOptedIn,
+  HARD_EXCLUDE_PATTERNS,
+} from '../src/config.js';
 
 describe('config', () => {
   test('defaults home to ~/.rm-brain and model to sonnet-5', () => {
@@ -38,5 +45,18 @@ describe('config', () => {
     expect(hasBrainTag(['#Brain'])).toBe(true);
     expect(hasBrainTag(['todo', 'work'])).toBe(false);
     expect(hasBrainTag([])).toBe(false);
+  });
+
+  test('name opt-in requires an explicit #brain token, not just the word brain', () => {
+    expect(nameHasBrainOptIn('Acme #brain')).toBe(true);
+    expect(nameHasBrainOptIn('#BRAIN dump')).toBe(true);
+    expect(nameHasBrainOptIn('Brainstorming ideas')).toBe(false);
+    expect(nameHasBrainOptIn('Work notes')).toBe(false);
+  });
+
+  test('isOptedIn accepts either a brain tag or a #brain title', () => {
+    expect(isOptedIn('Work notes', ['brain'])).toBe(true);
+    expect(isOptedIn('Acme #brain', [])).toBe(true);
+    expect(isOptedIn('Work notes', ['todo'])).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { BRAIN_TAG, isHardExcluded, hasBrainTag } from '../config.js';
+import { BRAIN_TAG, isHardExcluded, isOptedIn } from '../config.js';
 import type { Repo } from '../storage/repo.js';
 import type { Rmapi } from './rmapi.js';
 import type { Renderer } from './render.js';
@@ -49,7 +49,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
   for (const doc of docs) {
     summary.docsConsidered++;
     // Hard exclusion (name convention), prior user exclusion, or a missing tag all win over opt-in.
-    if (isHardExcluded(doc.name) || excludedIds.has(doc.id) || !hasBrainTag(doc.tags)) {
+    if (isHardExcluded(doc.name) || excludedIds.has(doc.id) || !isOptedIn(doc.name, doc.tags)) {
       summary.skippedExcluded.push(doc.name);
       continue;
     }

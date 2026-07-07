@@ -51,8 +51,10 @@ Because the whole index is that one self-contained folder:
 
 ## Privacy model — opt-in
 
-- **Nothing is indexed unless you tag it `#brain`** on the tablet. The safe default is
-  "do nothing"; sending a notebook to Claude requires a deliberate act.
+- **Nothing is indexed unless you opt a notebook in**, one of two ways: tag it `brain` on the
+  tablet, **or** put `#brain` in its title. The safe default is "do nothing"; sending a
+  notebook to Claude requires a deliberate act. (The title route is handy when device tags
+  are slow to sync.)
 - **Hard exclusion always wins:** a notebook whose name matches `/^\./`, `/private/i`, or
   `/noindex/i` is skipped entirely — never exported, extracted, or sent anywhere — even if
   it also carries `#brain`.
@@ -86,14 +88,20 @@ npm link   # optional: puts `rm-brain` on your PATH
 
 ## Setup
 
+One command does it all — run it and follow the prompts:
+
 ```bash
-rm-brain setup     # checks deps and prints your Claude Desktop config block
-rm-brain doctor    # verify rmapi, poppler, API key, data home
+rm-brain setup
 ```
 
-`setup` prints a block like this — paste it into Claude Desktop's config file
-(`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS), then restart
-Claude Desktop:
+The wizard checks your tools, pairs rmapi if needed, **prompts for your Anthropic API key
+once and saves it** to `~/.rm-brain/config.json` (chmod 600, so you never re-`export` it),
+helps you opt a notebook in, detects it, offers to run the first sync, and can write your
+Claude Desktop config automatically. Re-run it anytime — it's idempotent.
+
+Prefer to wire Claude Desktop by hand? The MCP block looks like this — paste it into
+`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) and restart Claude
+Desktop:
 
 ```json
 {

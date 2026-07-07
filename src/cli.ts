@@ -1,9 +1,21 @@
 #!/usr/bin/env node
-import { accessSync, constants, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import {
+  accessSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { loadConfig } from './config.js';
+import { resolveConfig, type Config } from './config.js';
+import { writeStore } from './store.js';
 import { openDb, migrate, type DB } from './storage/db.js';
 import { Repo } from './storage/repo.js';
 import { runDoctor } from './cli/doctor.js';
@@ -11,7 +23,7 @@ import { notebooksTable } from './cli/render-table.js';
 import { tarArgs, resolveBackupDest } from './cli/backup.js';
 import { createRmapi } from './sync/rmapi.js';
 import { createRenderer } from './sync/render.js';
-import { runSync } from './sync/sync.js';
+import { runSync, type SyncSummary } from './sync/sync.js';
 import { extractPage, createAnthropicClient } from './extraction/extract.js';
 
 function hasBin(bin: string): boolean {
@@ -23,8 +35,8 @@ function hasBin(bin: string): boolean {
   }
 }
 
-function openRepo(): { cfg: ReturnType<typeof loadConfig>; repo: Repo; db: DB } {
-  const cfg = loadConfig();
+function openRepo(): { cfg: Config; repo: Repo; db: DB } {
+  const cfg = resolveConfig();
   mkdirSync(cfg.home, { recursive: true });
   const db = openDb(cfg.dbPath);
   migrate(db);
@@ -37,11 +49,96 @@ function fmtBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
+/** True if rmapi is paired (has a working device token). */
+function rmapiPaired(bin: string): boolean {
+  try {
+    execFileSync(bin, ['-ni', 'account'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Refresh the remote tree and return the names of opted-in (tag or #brain title) documents. */
+function detectBrainDocs(bin: string): string[] {
+  try {
+    execFileSync(bin, ['-ni', 'refresh'], { stdio: 'ignore' });
+  } catch {
+    // refresh is best-effort
+  }
+  const lines = (cmd: string[]) => {
+    try {
+      return execFileSync(bin, ['-ni', ...cmd], { encoding: 'utf8', maxBuffer: 1024 * 1024 * 32 })
+        .split('\n')
+        .map((s) => s.trim())
+        .filter((s) => s && s !== '/' && !s.endsWith('/') && !s.startsWith('/trash/'));
+    } catch {
+      return [];
+    }
+  };
+  const tagged = lines(['find', '--compact', '--tag=brain']);
+  const named = lines(['find', '--compact', '/']).filter((pth) =>
+    /#brain\b/i.test(pth.split('/').pop() ?? '')
+  );
+  return [...new Set([...tagged, ...named])];
+}
+
+function claudeConfigPath(): string {
+  return join(homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+}
+
+function mcpBlock(home: string) {
+  return { mcpServers: { 'rm-brain': { command: 'rm-brain', args: ['mcp'], env: { RM_BRAIN_HOME: home } } } };
+}
+
+function writeClaudeConfig(home: string): string {
+  const path = claudeConfigPath();
+  let cfg: Record<string, unknown> = {};
+  if (existsSync(path)) {
+    try {
+      cfg = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    } catch {
+      cfg = {};
+    }
+  }
+  const servers = (cfg.mcpServers as Record<string, unknown>) ?? {};
+  servers['rm-brain'] = { command: 'rm-brain', args: ['mcp'], env: { RM_BRAIN_HOME: home } };
+  cfg.mcpServers = servers;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(cfg, null, 2));
+  return path;
+}
+
+/** Shared sync runner used by both `sync` and the wizard. */
+async function doSync(cfg: Config, repo: Repo): Promise<SyncSummary> {
+  const client = await createAnthropicClient(cfg.anthropicApiKey!);
+  const spin = p.spinner();
+  spin.start('Syncing…');
+  const summary = await runSync({
+    repo,
+    rmapi: createRmapi(cfg.rmapiBin),
+    renderer: createRenderer(cfg.rmcBin, cfg.rsvgBin),
+    extract: (img) => extractPage({ imagePath: img, model: cfg.anthropicModel, client }),
+    manifestPath: cfg.manifestPath,
+    imagesDir: cfg.imagesDir,
+    tmpDir: cfg.home,
+    log: (m) => spin.message(m),
+  });
+  spin.stop('Sync complete');
+  p.log.message(
+    `Docs synced: ${summary.docsSynced}, pages extracted: ${summary.pagesExtracted}, ` +
+      `excluded: ${summary.skippedExcluded.length}, errors: ${summary.errors.length}`
+  );
+  for (const e of summary.errors)
+    p.log.warn(`error: doc ${e.docId}${e.page ? ` page ${e.page}` : ''}: ${e.message}`);
+  return summary;
+}
+
 async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   switch (cmd) {
     case 'doctor': {
-      const cfg = loadConfig();
+      const cfg = resolveConfig();
       let writable = true;
       try {
         mkdirSync(cfg.home, { recursive: true });
@@ -49,7 +146,7 @@ async function main() {
       } catch {
         writable = false;
       }
-      const res = runDoctor(process.env, { hasBin, homeWritable: writable });
+      const res = runDoctor(cfg, { hasBin, homeWritable: writable });
       p.intro(pc.bold('rm-brain doctor'));
       for (const r of res)
         p.log.message(`${r.ok ? pc.green('✓') : pc.red('✗')} ${r.name} — ${pc.dim(r.detail)}`);
@@ -62,7 +159,9 @@ async function main() {
       const pages = nbs.reduce((s, n) => s + n.pageCount, 0);
       const dbSize = existsSync(cfg.dbPath) ? statSync(cfg.dbPath).size : 0;
       p.intro(pc.bold('rm-brain'));
-      p.log.message(`Data home:  ${pc.cyan(cfg.home)}  ${pc.dim('(portable — copy this folder to back up)')}`);
+      p.log.message(
+        `Data home:  ${pc.cyan(cfg.home)}  ${pc.dim('(portable — copy this folder to back up)')}`
+      );
       p.log.message(`Database:   ${cfg.dbPath} ${pc.dim(`(${fmtBytes(dbSize)})`)}`);
       p.log.message(`Images:     ${cfg.imagesDir}`);
       p.log.message(`Indexed:    ${nbs.length} notebooks, ${pages} pages`);
@@ -71,7 +170,6 @@ async function main() {
     }
     case 'backup': {
       const { cfg } = openRepo();
-      // Fold any WAL contents into the main db file so the archive is a clean snapshot.
       try {
         const db = openDb(cfg.dbPath);
         db.pragma('wal_checkpoint(TRUNCATE)');
@@ -82,7 +180,9 @@ async function main() {
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       const dest = resolveBackupDest(process.cwd(), rest[0], stamp);
       execFileSync('tar', tarArgs(cfg.home, dest), { stdio: 'ignore' });
-      p.log.success(`Backup written to ${pc.cyan(dest)} ${pc.dim(`(${fmtBytes(statSync(dest).size)})`)}`);
+      p.log.success(
+        `Backup written to ${pc.cyan(dest)} ${pc.dim(`(${fmtBytes(statSync(dest).size)})`)}`
+      );
       p.log.message(pc.dim('Restore: extract it and point RM_BRAIN_HOME at the resulting folder.'));
       break;
     }
@@ -142,29 +242,12 @@ async function main() {
     case 'sync': {
       const { cfg, repo } = openRepo();
       if (!cfg.anthropicApiKey) {
-        p.log.error('ANTHROPIC_API_KEY not set — required for sync.');
+        p.log.error('No Anthropic API key. Run `rm-brain setup` to save one, or set ANTHROPIC_API_KEY.');
         process.exit(1);
       }
-      const client = await createAnthropicClient(cfg.anthropicApiKey);
-      const spin = p.spinner();
-      spin.start('Syncing…');
-      const summary = await runSync({
-        repo,
-        rmapi: createRmapi(cfg.rmapiBin),
-        renderer: createRenderer(cfg.rmcBin, cfg.rsvgBin),
-        extract: (img) => extractPage({ imagePath: img, model: cfg.anthropicModel, client }),
-        manifestPath: cfg.manifestPath,
-        imagesDir: cfg.imagesDir,
-        tmpDir: cfg.home,
-        log: (m) => spin.message(m),
-      });
-      spin.stop('Sync complete');
-      p.log.message(
-        `Docs synced: ${summary.docsSynced}, pages extracted: ${summary.pagesExtracted}, ` +
-          `excluded: ${summary.skippedExcluded.length}, errors: ${summary.errors.length}`
-      );
-      for (const e of summary.errors)
-        p.log.warn(`error: doc ${e.docId}${e.page ? ` page ${e.page}` : ''}: ${e.message}`);
+      p.intro(pc.bold('rm-brain sync'));
+      await doSync(cfg, repo);
+      p.outro('Done. Ask Claude Desktop about your notes, or `rm-brain search "..."`.');
       break;
     }
     case 'setup': {
@@ -180,7 +263,7 @@ async function main() {
         [
           `${pc.bold('rm-brain')} <command>`,
           '',
-          '  setup            interactive setup wizard',
+          `  ${pc.green('setup')}            one-command guided setup (start here)`,
           '  sync             pull #brain notebooks and index them',
           '  search <query>   full-text search in the terminal',
           '  list             show indexed notebooks',
@@ -197,28 +280,127 @@ async function main() {
 }
 
 async function runSetupWizard(): Promise<void> {
-  const cfg = loadConfig();
+  let cfg = resolveConfig();
+  mkdirSync(cfg.home, { recursive: true });
   p.intro(pc.bold('rm-brain setup'));
-  if (!hasBin(cfg.rmapiBin))
-    p.log.warn(
-      `rmapi not found. Install the ddvk sync15 build, then run: ${pc.cyan(cfg.rmapiBin)} (it prompts to pair a one-time code).`
-    );
-  else p.log.success('rmapi found.');
-  if (!hasBin(cfg.rmcBin)) p.log.warn('rmc not found. Install with: pipx install rmc');
-  else p.log.success('rmc found.');
-  if (!hasBin(cfg.rsvgBin)) p.log.warn('rsvg-convert not found. Install with: brew install librsvg');
-  else p.log.success('rsvg-convert found.');
-  if (!cfg.anthropicApiKey)
-    p.log.warn('Set ANTHROPIC_API_KEY in your environment before running sync.');
-  else p.log.success('ANTHROPIC_API_KEY is set.');
 
-  const block = JSON.stringify(
-    { mcpServers: { 'rm-brain': { command: 'rm-brain', args: ['mcp'], env: { RM_BRAIN_HOME: cfg.home } } } },
-    null,
-    2
-  );
-  p.note(block, 'Paste into Claude Desktop config → mcpServers');
-  p.outro('Run `rm-brain doctor` to verify, tag a notebook #brain, then `rm-brain sync`.');
+  // 1) Dependencies
+  const deps: [string, string, string][] = [
+    ['rmapi', cfg.rmapiBin, 'install the ddvk sync15 build (see README)'],
+    ['rmc', cfg.rmcBin, 'pipx install rmc'],
+    ['rsvg-convert', cfg.rsvgBin, 'brew install librsvg'],
+  ];
+  let missing = false;
+  for (const [name, bin, how] of deps) {
+    if (hasBin(bin)) p.log.success(`${name} found`);
+    else {
+      p.log.warn(`${name} missing — ${how}`);
+      missing = true;
+    }
+  }
+  if (missing) {
+    const cont = await p.confirm({ message: 'Some tools are missing. Continue anyway?' });
+    if (p.isCancel(cont) || !cont) {
+      p.cancel('Install the tools above, then re-run `rm-brain setup`.');
+      return;
+    }
+  }
+
+  // 2) rmapi pairing
+  if (hasBin(cfg.rmapiBin)) {
+    if (rmapiPaired(cfg.rmapiBin)) {
+      p.log.success('rmapi is paired with your reMarkable account.');
+    } else {
+      p.log.warn('rmapi is not paired yet.');
+      const doPair = await p.confirm({
+        message: 'Pair now? Get a code from https://my.remarkable.com/device/desktop/connect first.',
+      });
+      if (!p.isCancel(doPair) && doPair) {
+        p.log.message('Enter your one-time code at the prompt below:');
+        try {
+          execFileSync(cfg.rmapiBin, ['ls'], { stdio: 'inherit' });
+          p.log.success('Paired.');
+        } catch {
+          p.log.error('Pairing did not complete. You can retry with `rm-brain setup`.');
+        }
+      }
+    }
+  }
+
+  // 3) API key (persisted)
+  if (cfg.anthropicApiKey) {
+    p.log.success('Anthropic API key is configured.');
+  } else {
+    const key = await p.password({
+      message: 'Paste your Anthropic API key (saved to ~/.rm-brain/config.json, chmod 600):',
+    });
+    if (!p.isCancel(key) && typeof key === 'string' && key.trim()) {
+      writeStore(cfg.home, { anthropicApiKey: key.trim() });
+      cfg = resolveConfig();
+      p.log.success('API key saved.');
+    } else {
+      p.log.warn('No key saved — you can add it later by re-running setup.');
+    }
+  }
+
+  // 4) Tag guidance + detection loop
+  let found: string[] = [];
+  if (hasBin(cfg.rmapiBin) && rmapiPaired(cfg.rmapiBin)) {
+    p.note(
+      'Two ways to opt a notebook in:\n' +
+        '  • Tag it "brain" on the tablet (long-press notebook → Add tag), or\n' +
+        '  • Put "#brain" in the notebook title.\n' +
+        'Then make sure the tablet syncs (Wi-Fi).',
+      'Mark a notebook for indexing'
+    );
+    for (;;) {
+      const check = await p.confirm({ message: 'Check now for opted-in notebooks?' });
+      if (p.isCancel(check) || !check) break;
+      const spin = p.spinner();
+      spin.start('Refreshing and searching…');
+      found = detectBrainDocs(cfg.rmapiBin);
+      spin.stop(`Found ${found.length} notebook(s).`);
+      if (found.length) {
+        for (const f of found) p.log.message(`  • ${f}`);
+        break;
+      }
+      const next = await p.select({
+        message: 'None found yet. What next?',
+        options: [
+          { value: 'retry', label: 'I just tagged/renamed one — check again' },
+          { value: 'skip', label: 'Skip for now' },
+        ],
+      });
+      if (p.isCancel(next) || next === 'skip') break;
+    }
+  }
+
+  // 5) First sync
+  if (cfg.anthropicApiKey && found.length) {
+    const doNow = await p.confirm({ message: `Run the first sync now (${found.length} notebook(s))?` });
+    if (!p.isCancel(doNow) && doNow) {
+      const db = openDb(cfg.dbPath);
+      migrate(db);
+      await doSync(cfg, new Repo(db));
+    }
+  }
+
+  // 6) Claude Desktop wiring
+  if (process.platform === 'darwin') {
+    const wire = await p.confirm({
+      message: `Add rm-brain to Claude Desktop config at ${claudeConfigPath()}?`,
+    });
+    if (!p.isCancel(wire) && wire) {
+      const written = writeClaudeConfig(cfg.home);
+      p.log.success(`Updated ${written}. Restart Claude Desktop to load it.`);
+    } else {
+      p.note(JSON.stringify(mcpBlock(cfg.home), null, 2), 'Paste into Claude Desktop config → mcpServers');
+    }
+  } else {
+    p.note(JSON.stringify(mcpBlock(cfg.home), null, 2), 'Paste into Claude Desktop config → mcpServers');
+  }
+
+  p.outro('All set. Run `rm-brain sync` anytime, then ask Claude Desktop about your notes.');
 }
 
 main().catch((e) => {
