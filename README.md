@@ -13,13 +13,17 @@ service, using your existing Claude subscription.
 
 ```
 reMarkable Cloud
-   │  rmapi (list + tags + export annotated PDF)
+   │  rmapi (find --tag=brain + stat + get)
    ▼
-Annotated PDF  ──pdftoppm──►  page PNGs  ──►  Extraction (Claude vision, 1 call/page)
-                                                     │
-                                                     ▼
-                                        SQLite + FTS5   ◄──►  MCP server  ◄──►  Claude Desktop
+.rmdoc archive  ──rmc──►  per-page SVG  ──rsvg-convert──►  page PNGs
+                                                              │  Extraction (Claude vision, 1 call/page)
+                                                              ▼
+                                                 SQLite + FTS5  ◄──►  MCP server  ◄──►  Claude Desktop
 ```
+
+reMarkable notebooks are stored as proprietary `.rm` v6 vector files (not PDFs), so the
+renderer is [`rmc`](https://github.com/ricklupton/rmc) (SVG) + `rsvg-convert` (PNG) rather
+than a PDF rasterizer.
 
 ## What data goes where
 
@@ -59,10 +63,18 @@ Because the whole index is that one self-contained folder:
 ## Prerequisites
 
 - **Node.js 20+**
-- **poppler** (`pdftoppm`): `brew install poppler`
-- **rmapi** — the reMarkable Cloud CLI. Install it and pair it once (it prompts for a
-  one-time code): <https://github.com/juruen/rmapi>
+- **rmapi** — reMarkable Cloud CLI. Use the **[`ddvk/rmapi`](https://github.com/ddvk/rmapi)
+  `sync15` build** (grab a release binary or build the `sync15` branch). reMarkable's newer
+  cloud sync protocol returns HTTP 410 with older rmapi builds. Pair it once (it prompts for
+  a one-time code from <https://my.remarkable.com/device/desktop/connect>).
+- **rmc** — renders `.rm` v6 pages: `pipx install rmc`
+- **librsvg** (`rsvg-convert`): `brew install librsvg`
 - **Anthropic API key** — used only during `sync` for handwriting extraction.
+
+> **Safety note:** rm-brain only ever *reads* from your reMarkable cloud (`find`/`stat`/`get`).
+> It never uploads or modifies anything, so the metadata-corruption issues reMarkable has
+> attributed to rmapi *writes* don't apply here. Your notebooks stay untouched on the device
+> and in reMarkable's own cloud.
 
 ## Install
 
@@ -121,7 +133,9 @@ Claude Desktop:
 | Env var | Default | Purpose |
 | --- | --- | --- |
 | `RM_BRAIN_HOME` | `~/.rm-brain` | Where all local data lives |
-| `RMAPI_BIN` | `rmapi` | Path/name of the rmapi binary |
+| `RMAPI_BIN` | `rmapi` | Path/name of the rmapi binary (ddvk sync15 build) |
+| `RMC_BIN` | `rmc` | Path/name of the rmc renderer |
+| `RSVG_BIN` | `rsvg-convert` | Path/name of rsvg-convert (SVG→PNG) |
 | `ANTHROPIC_API_KEY` | — | Required only for `sync` (extraction) |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | Vision model for extraction |
 

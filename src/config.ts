@@ -10,6 +10,8 @@ export interface Config {
   imagesDir: string;
   manifestPath: string;
   rmapiBin: string;
+  rmcBin: string;
+  rsvgBin: string;
   anthropicApiKey?: string;
   anthropicModel: string;
 }
@@ -22,6 +24,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     imagesDir: join(home, 'images'),
     manifestPath: join(home, 'manifest.json'),
     rmapiBin: env.RMAPI_BIN?.trim() || 'rmapi',
+    rmcBin: env.RMC_BIN?.trim() || 'rmc',
+    rsvgBin: env.RSVG_BIN?.trim() || 'rsvg-convert',
     anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() || undefined,
     anthropicModel: env.ANTHROPIC_MODEL?.trim() || 'claude-sonnet-5',
   };

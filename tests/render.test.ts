@@ -1,7 +1,19 @@
 import { expect, test } from 'vitest';
-import { parsePngList } from '../src/sync/render.js';
+import { parsePageOrder } from '../src/sync/render.js';
 
-test('parsePngList sorts numerically and filters', () => {
-  const files = ['page-10.png', 'page-2.png', 'page-1.png', 'notes.txt'];
-  expect(parsePngList(files, '/out')).toEqual(['/out/page-1.png', '/out/page-2.png', '/out/page-10.png']);
+test('parsePageOrder reads cPages.pages order (formatVersion 2)', () => {
+  const content = JSON.stringify({
+    formatVersion: 2,
+    cPages: { pages: [{ id: 'aaa' }, { id: 'bbb' }, { id: 'ccc' }] },
+  });
+  expect(parsePageOrder(content)).toEqual(['aaa', 'bbb', 'ccc']);
+});
+
+test('parsePageOrder falls back to legacy pages array', () => {
+  expect(parsePageOrder(JSON.stringify({ pages: ['p1', 'p2'] }))).toEqual(['p1', 'p2']);
+});
+
+test('parsePageOrder returns [] on malformed input', () => {
+  expect(parsePageOrder('not json')).toEqual([]);
+  expect(parsePageOrder('{}')).toEqual([]);
 });

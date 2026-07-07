@@ -1,30 +1,65 @@
 import { execFile } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import { promisify } from 'node:util';
-import { mkdirSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
 const pexec = promisify(execFile);
 
+export interface RenderedPage {
+  pageNumber: number;
+  path: string;
+}
 export interface Renderer {
-  renderPdfToPngs(pdfPath: string, outDir: string, docId: string): Promise<string[]>;
+  /** Render each drawn page of a `.rmdoc` to a PNG, in notebook order. Blank pages are skipped. */
+  renderDocToPngs(rmdocPath: string, outDir: string, docId: string): Promise<RenderedPage[]>;
 }
 
-export function parsePngList(files: string[], outDir: string): string[] {
-  return files
-    .filter((f) => /^page-\d+\.png$/.test(f))
-    .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]))
-    .map((f) => join(outDir, f));
+/** Extract the ordered list of page ids from a `.content` file (formatVersion 2 `cPages`, or legacy `pages`). */
+export function parsePageOrder(contentJson: string): string[] {
+  let d: Record<string, unknown>;
+  try {
+    d = JSON.parse(contentJson) as Record<string, unknown>;
+  } catch {
+    return [];
+  }
+  const cPages = d.cPages as { pages?: { id?: string }[] } | undefined;
+  if (cPages?.pages) {
+    return cPages.pages.map((p) => String(p.id ?? '')).filter((id) => id.length > 0);
+  }
+  if (Array.isArray(d.pages)) {
+    return (d.pages as unknown[]).map((p) => String(p)).filter((id) => id.length > 0);
+  }
+  return [];
 }
 
-export function createRenderer(pdftoppmBin = 'pdftoppm'): Renderer {
+export function createRenderer(rmcBin = 'rmc', rsvgBin = 'rsvg-convert'): Renderer {
   return {
-    async renderPdfToPngs(pdfPath: string, outDir: string, docId: string): Promise<string[]> {
-      const dir = join(outDir, docId);
-      mkdirSync(dir, { recursive: true });
-      // -r 150 dpi, -png; produces page-1.png, page-2.png, ...
-      await pexec(pdftoppmBin, ['-r', '150', '-png', pdfPath, join(dir, 'page')], {
-        maxBuffer: 1024 * 1024 * 64,
-      });
-      return parsePngList(readdirSync(dir), dir);
+    async renderDocToPngs(rmdocPath: string, outDir: string, docId: string): Promise<RenderedPage[]> {
+      const work = mkdtempSync(join(tmpdir(), 'rmb-render-'));
+      await pexec('unzip', ['-o', '-q', rmdocPath, '-d', work], { maxBuffer: 1024 * 1024 * 256 });
+
+      const contentFile = readdirSync(work).find((f) => f.endsWith('.content'));
+      if (!contentFile) throw new Error(`no .content file in ${rmdocPath}`);
+      const innerId = basename(contentFile, '.content');
+      const order = parsePageOrder(readFileSync(join(work, contentFile), 'utf8'));
+      const pageDir = join(work, innerId);
+
+      const destDir = join(outDir, docId);
+      mkdirSync(destDir, { recursive: true });
+
+      const out: RenderedPage[] = [];
+      let pageNumber = 0;
+      for (const pageId of order) {
+        pageNumber++;
+        const rm = join(pageDir, `${pageId}.rm`);
+        if (!existsSync(rm)) continue; // page never drawn on — nothing to transcribe
+        const svg = join(work, `${pageId}.svg`);
+        const png = join(destDir, `page-${pageNumber}.png`);
+        await pexec(rmcBin, ['-t', 'svg', rm, '-o', svg], { maxBuffer: 1024 * 1024 * 64 });
+        await pexec(rsvgBin, ['-b', 'white', svg, '-o', png], { maxBuffer: 1024 * 1024 * 64 });
+        out.push({ pageNumber, path: png });
+      }
+      return out;
     },
   };
 }

@@ -11,25 +11,41 @@ function tmp() {
   return mkdtempSync(join(tmpdir(), 'rmb-sync-'));
 }
 
-test('runSync indexes only #brain, honors hard-exclusion, skips unchanged', async () => {
+function doc(over: Partial<any> = {}) {
+  return {
+    id: 'a',
+    name: 'Work Notes',
+    version: 'v1',
+    modified: '2026-01-01',
+    tags: ['brain'],
+    path: '/Work Notes',
+    type: 'DocumentType',
+    ...over,
+  };
+}
+
+test('runSync indexes #brain docs, honors hard-exclusion, skips unchanged', async () => {
   const db = new Database(':memory:');
   migrate(db);
   const repo = new Repo(db);
   const home = tmp();
 
   const rmapi = {
-    listDocuments: vi.fn().mockResolvedValue([
-      { id: 'a', name: 'Work Notes', version: 'v1', modified: '2026-01-01', tags: ['brain'] },
-      { id: 'b', name: 'Groceries', version: 'v1', modified: '2026-01-01', tags: [] }, // untagged -> skip
-      { id: 'c', name: 'Private diary', version: 'v1', modified: '2026-01-01', tags: ['brain'] }, // hard-excluded
+    listBrainDocs: vi.fn().mockResolvedValue([
+      doc({ id: 'a', name: 'Work Notes', path: '/Work Notes' }),
+      doc({ id: 'c', name: 'Private diary', path: '/Private diary' }), // hard-excluded
     ]),
-    exportAnnotatedPdf: vi.fn(async (_id: string, out: string) => writeFileSync(out, 'pdf')),
+    downloadDoc: vi.fn(async (_p: string, dest: string) => {
+      const f = join(dest, 'doc.rmdoc');
+      writeFileSync(f, 'archive');
+      return f;
+    }),
   };
   const renderer = {
-    renderPdfToPngs: vi.fn(async (_pdf: string, outDir: string, docId: string) => {
+    renderDocToPngs: vi.fn(async (_a: string, outDir: string, docId: string) => {
       const p = join(outDir, `${docId}-p1.png`);
       writeFileSync(p, 'imgdata');
-      return [p];
+      return [{ pageNumber: 1, path: p }];
     }),
   };
   const extract = vi.fn().mockResolvedValue({
@@ -54,7 +70,6 @@ test('runSync indexes only #brain, honors hard-exclusion, skips unchanged', asyn
   expect(s1.docsSynced).toBe(1);
   expect(s1.pagesExtracted).toBe(1);
   expect(s1.skippedExcluded).toEqual(['Private diary']);
-  expect(s1.skippedUntagged).toBe(1);
   expect(repo.listNotebooks().find((n) => n.id === 'a')?.pageCount).toBe(1);
 
   // Second run: nothing changed -> no re-extraction
@@ -69,16 +84,18 @@ test('runSync records per-page errors and continues', async () => {
   const repo = new Repo(db);
   const home = tmp();
   const rmapi = {
-    listDocuments: vi
-      .fn()
-      .mockResolvedValue([{ id: 'a', name: 'N', version: 'v1', modified: '2026-01-01', tags: ['brain'] }]),
-    exportAnnotatedPdf: vi.fn(async (_id: string, out: string) => writeFileSync(out, 'pdf')),
+    listBrainDocs: vi.fn().mockResolvedValue([doc({ id: 'a', name: 'N', path: '/N' })]),
+    downloadDoc: vi.fn(async (_p: string, dest: string) => {
+      const f = join(dest, 'doc.rmdoc');
+      writeFileSync(f, 'archive');
+      return f;
+    }),
   };
   const renderer = {
-    renderPdfToPngs: vi.fn(async (_p: string, outDir: string, id: string) => {
+    renderDocToPngs: vi.fn(async (_a: string, outDir: string, id: string) => {
       const p = join(outDir, `${id}.png`);
       writeFileSync(p, 'x');
-      return [p];
+      return [{ pageNumber: 1, path: p }];
     }),
   };
   const extract = vi.fn().mockRejectedValue(new Error('api down'));
@@ -103,12 +120,10 @@ test('runSync skips notebooks the user previously excluded in the DB', async () 
   repo.upsertNotebook({ id: 'a', name: 'Work Notes', excluded: true });
   const home = tmp();
   const rmapi = {
-    listDocuments: vi
-      .fn()
-      .mockResolvedValue([{ id: 'a', name: 'Work Notes', version: 'v1', modified: '2026-01-01', tags: ['brain'] }]),
-    exportAnnotatedPdf: vi.fn(),
+    listBrainDocs: vi.fn().mockResolvedValue([doc({ id: 'a', name: 'Work Notes', path: '/Work Notes' })]),
+    downloadDoc: vi.fn(),
   };
-  const renderer = { renderPdfToPngs: vi.fn() };
+  const renderer = { renderDocToPngs: vi.fn() };
   const extract = vi.fn();
   const deps: SyncDeps = {
     repo,
@@ -122,6 +137,6 @@ test('runSync skips notebooks the user previously excluded in the DB', async () 
   const s = await runSync(deps);
   expect(s.pagesExtracted).toBe(0);
   expect(extract).not.toHaveBeenCalled();
-  expect(rmapi.exportAnnotatedPdf).not.toHaveBeenCalled();
+  expect(rmapi.downloadDoc).not.toHaveBeenCalled();
   expect(s.skippedExcluded).toEqual(['Work Notes']);
 });
