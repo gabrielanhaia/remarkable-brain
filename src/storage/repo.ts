@@ -150,11 +150,25 @@ export class Repo {
   }
 
   getPage(pageId: string): PageFull | undefined {
+    interface PageRow {
+      id: string;
+      notebook_id: string;
+      notebookName: string;
+      page_number: number;
+      written_at: string | null;
+      image_path: string | null;
+      extracted_text: string | null;
+      page_type: string | null;
+      open_loop: number;
+      open_loop_description: string | null;
+      content_hash: string | null;
+      extracted_at: string | null;
+    }
     const row = this.db
       .prepare(
         `SELECT p.*, n.name AS notebookName FROM pages p JOIN notebooks n ON n.id = p.notebook_id WHERE p.id = ?`
       )
-      .get(pageId) as any;
+      .get(pageId) as PageRow | undefined;
     if (!row) return undefined;
     const entities = this.db
       .prepare(
@@ -186,7 +200,7 @@ export class Repo {
            FROM notebooks n LEFT JOIN pages p ON p.notebook_id = n.id
            GROUP BY n.id ORDER BY n.name`
         )
-        .all() as any[]
+        .all() as { id: string; name: string; excluded: number; pageCount: number }[]
     ).map((r) => ({ id: r.id, name: r.name, excluded: !!r.excluded, pageCount: r.pageCount }));
   }
 
@@ -224,15 +238,15 @@ export class Repo {
          FROM entities e JOIN page_entities pe ON pe.entity_id = e.id
          GROUP BY e.id ORDER BY pageCount DESC, e.name`
       )
-      .all() as any[];
+      .all() as { name: string; type: string; pageCount: number }[];
   }
 
   purgeNotebook(notebookId: string): string[] {
     const imgs = (
       this.db
         .prepare('SELECT image_path FROM pages WHERE notebook_id = ? AND image_path IS NOT NULL')
-        .all(notebookId) as any[]
-    ).map((r) => r.image_path as string);
+        .all(notebookId) as { image_path: string }[]
+    ).map((r) => r.image_path);
     this.db.prepare('DELETE FROM notebooks WHERE id = ?').run(notebookId); // cascades pages/page_entities
     return imgs;
   }
