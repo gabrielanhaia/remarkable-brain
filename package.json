@@ -3,18 +3,44 @@
   "version": "0.1.0",
   "description": "Local-first second brain for reMarkable notebooks, searched through Claude Desktop",
   "license": "MIT",
+  "author": "Gabriel Anhaia",
   "type": "module",
   "bin": { "rm-brain": "dist/cli.js" },
   "exports": "./dist/index.js",
+  "files": ["dist", "README.md", "LICENSE"],
   "engines": { "node": ">=20" },
+  "keywords": [
+    "remarkable",
+    "second-brain",
+    "notes",
+    "handwriting",
+    "ocr",
+    "claude",
+    "mcp",
+    "model-context-protocol",
+    "local-first",
+    "sqlite",
+    "cli"
+  ],
+  "homepage": "https://github.com/gabrielanhaia/remarkable-brain#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gabrielanhaia/remarkable-brain.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gabrielanhaia/remarkable-brain/issues"
+  },
   "scripts": {
     "build": "tsup src/cli.ts src/index.ts src/mcp/server.ts --format esm --clean",
     "dev": "tsx src/cli.ts",
     "mcp": "tsx src/mcp/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
