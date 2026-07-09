@@ -9,6 +9,12 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
+[![Website](https://img.shields.io/badge/website-xgabriel.com-6E56CF?style=for-the-badge&logo=safari&logoColor=white)](https://xgabriel.com)
+&nbsp;
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/gabrielanhaia)
+
+**Built by [Gabriel Anhaia](https://xgabriel.com) · [☕ Buy me a coffee](https://www.buymeacoffee.com/gabrielanhaia)**
+
 </div>
 
 ---
@@ -40,14 +46,23 @@ itself and surfaces things you forgot about.
 
 ## How it works
 
-```
-reMarkable Cloud
-   │  rmapi (list the Brain folder + stat + get)
-   ▼
-.rmdoc archive  ──rmc──►  per-page SVG  ──rsvg-convert──►  page PNGs
-                                                              │  Extraction (Claude vision, 1 call/page)
-                                                              ▼
-                                                 SQLite + FTS5  ◄──►  MCP server  ◄──►  Claude Desktop
+```mermaid
+flowchart TD
+    A["☁️ reMarkable Cloud"] -->|"rmapi: list Brain folder · stat · get"| B["📦 .rmdoc archive<br/>(.rm v6 vector files)"]
+    B -->|rmc| C["🖼️ per-page SVG"]
+    C -->|rsvg-convert| D["🏞️ page PNGs"]
+    D -->|"Claude vision · 1 call/page"| E["✍️ Extraction<br/>text · type · entities · open loops"]
+    E --> F[("🗄️ SQLite + FTS5<br/>~/.rm-brain")]
+    CLI["⌨️ CLI<br/>sync · search · backup"] --> F
+    F <--> G["🔌 MCP server"]
+    G <--> H["💬 Claude Desktop"]
+
+    classDef cloud fill:#e8f0fe,stroke:#4285f4,color:#1a1a1a;
+    classDef local fill:#e9f7ef,stroke:#27ae60,color:#1a1a1a;
+    classDef ai fill:#f3e8fd,stroke:#8e44ad,color:#1a1a1a;
+    class A cloud;
+    class B,C,D,F,CLI local;
+    class E,G,H ai;
 ```
 
 reMarkable notebooks are stored as proprietary `.rm` v6 vector files (not PDFs), so pages are
@@ -203,6 +218,27 @@ Ideas and PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
 Contributions are very welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) to get set up,
 and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md). Security issues: [SECURITY.md](./SECURITY.md).
 
+## 💛 Support
+
+If rm-brain is useful to you, consider supporting development — it genuinely helps and keeps the
+project going:
+
+<p align="center">
+  <a href="https://www.buymeacoffee.com/gabrielanhaia">
+    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕%20support-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://xgabriel.com">
+    <img src="https://img.shields.io/badge/Visit-xgabriel.com-6E56CF?style=for-the-badge&logo=safari&logoColor=white" alt="xgabriel.com">
+  </a>
+</p>
+
+You can also ⭐ star the repo — it helps others discover it.
+
 ## License
 
-[MIT](./LICENSE) © Gabriel Anhaia
+[MIT](./LICENSE) © [Gabriel Anhaia](https://xgabriel.com)
+
+<div align="center">
+  <sub>Built by <a href="https://xgabriel.com">Gabriel Anhaia</a> · ☕ <a href="https://www.buymeacoffee.com/gabrielanhaia">Buy me a coffee</a></sub>
+</div>
