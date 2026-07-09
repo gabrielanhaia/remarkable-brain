@@ -87,6 +87,10 @@ rendered with [`rmc`](https://github.com/ricklupton/rmc) + `rsvg-convert`. See
 
 ## Prerequisites
 
+> ✅ **No jailbreak, rooting, developer mode, or SSH hacks — ever.** rm-brain works entirely
+> through reMarkable's **official cloud sync** (via `rmapi`). Your tablet stays completely stock,
+> stock firmware, and under warranty. Nothing is installed on or modified on the device.
+
 | Tool | Why | Install |
 | --- | --- | --- |
 | **Node.js 20+** | runtime | [nodejs.org](https://nodejs.org) |
