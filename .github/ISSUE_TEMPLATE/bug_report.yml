@@ -1,0 +1,51 @@
+name: Bug report
+description: Report something that isn't working
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please **do not** paste your API key or full note contents.
+        For security/privacy issues, see [SECURITY.md](../blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: "I ran `rm-brain sync` and ..."
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `rm-brain doctor`
+      description: This is safe to paste (no secrets).
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: rm-brain version / commit
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS + Node version
+      placeholder: "macOS 15.6, Node 20.19"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Redact anything sensitive.
+      render: shell

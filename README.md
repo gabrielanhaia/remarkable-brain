@@ -1,13 +1,42 @@
-# rm-brain
+<div align="center">
 
-A local-first "second brain" for your handwritten **reMarkable** notebooks. It quietly
-syncs the notebooks you tag `#brain`, transcribes and classifies the handwriting with
-the Claude API, and stores everything in a local SQLite database. You then **search and
-explore it as an ordinary conversation in Claude Desktop** — no separate app, no hosted
-service, using your existing Claude subscription.
+# 🧠 rm-brain
 
-> Ask *"what did I decide about Acme pricing?"* or *"what open loops have I been ignoring?"*
-> and Claude answers with receipts: notebook name, page number, date, and the scanned page.
+**A local-first "second brain" for your handwritten reMarkable notebooks — searched through a normal Claude Desktop conversation.**
+
+[![CI](https://github.com/gabrielanhaia/remarkable-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/gabrielanhaia/remarkable-brain/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+
+</div>
+
+---
+
+rm-brain quietly syncs the notebooks you drop into a **Brain** folder on your reMarkable,
+transcribes and classifies the handwriting with the Claude API, and stores everything in a
+local SQLite database. You then **search and explore your notes as an ordinary conversation
+in Claude Desktop** — no separate app, no hosted service, using your existing Claude
+subscription.
+
+> **You:** *"What did I decide about the Acme pricing model?"*
+> **Claude:** *Pulls it from your notes and answers with receipts — notebook name, page
+> number, date, and the scanned page.*
+
+It's designed to feel less like a search box and more like a system that quietly organizes
+itself and surfaces things you forgot about.
+
+## Why it's different
+
+- **Your handwriting, actually understood.** Claude vision transcribes messy handwriting and
+  diagrams far better than built-in OCR, and classifies each page (journal / meeting / idea /
+  decision / …), extracts people & projects, and flags open loops.
+- **The interface is a conversation, not a dashboard.** Search happens inside Claude Desktop
+  via [MCP](https://modelcontextprotocol.io) — you get a world-class chat UI for free.
+- **Local-first and private by design.** The database, page images, and manifest never leave
+  your machine. See [Privacy](#-privacy--safety).
+- **Answers with receipts.** Every answer cites the notebook, page number, and date, and can
+  show you the scanned page — so you verify, not trust blindly.
 
 ## How it works
 
@@ -21,114 +50,75 @@ reMarkable Cloud
                                                  SQLite + FTS5  ◄──►  MCP server  ◄──►  Claude Desktop
 ```
 
-reMarkable notebooks are stored as proprietary `.rm` v6 vector files (not PDFs), so the
-renderer is [`rmc`](https://github.com/ricklupton/rmc) (SVG) + `rsvg-convert` (PNG) rather
-than a PDF rasterizer.
+reMarkable notebooks are stored as proprietary `.rm` v6 vector files (not PDFs), so pages are
+rendered with [`rmc`](https://github.com/ricklupton/rmc) + `rsvg-convert`. See
+[ARCHITECTURE.md](./ARCHITECTURE.md) for the full design.
 
-## What data goes where
+## 🔒 Privacy & safety
 
-Everything lives in **one portable folder**, `RM_BRAIN_HOME` (default `~/.rm-brain`):
-
-- `db.sqlite` — notebooks, pages, transcribed text (FTS5 index), entities
-- `images/` — one PNG per page, for citations
-- `manifest.json` — content hashes so only new/changed pages get reprocessed
-
-**The only things that ever leave your machine** are (a) individual page images sent to
-the Claude API during `sync`, and (b) individual queries + retrieved snippets sent through
-MCP while you search in Claude Desktop. The database, images, and manifest never leave as
-a whole.
-
-### Portability & backup
-
-Because the whole index is that one self-contained folder:
-
-- **Back up:** `rm-brain backup [dest.tar.gz]` writes a clean, portable snapshot. Or just
-  copy `~/.rm-brain`.
-- **Restore / move machines:** extract the archive anywhere and point `RM_BRAIN_HOME` at it.
-- **Auto-backup / roam:** set `RM_BRAIN_HOME` to a Dropbox/iCloud/Syncthing folder and it
-  backs itself up continuously.
-- `rm-brain info` shows exactly where the data lives and how big it is.
-
-## Privacy model — opt-in by folder
-
-- **Nothing is indexed unless you put the notebook in your Brain folder.** Create a folder
-  named `Brain` (case-insensitive; configurable via `RM_BRAIN_FOLDER`) on the tablet and move
-  notebooks into it. The safe default is "do nothing"; indexing a notebook requires a
-  deliberate move.
-- **The folder is the source of truth.** Remove a notebook from the folder (or delete it) and
-  the next `sync` **prunes it** from your local index — pages and images included.
-- **Hard exclusion always wins:** a notebook whose name matches `/^\./`, `/private/i`, or
-  `/noindex/i` is skipped entirely — never exported, extracted, or sent anywhere — even inside
-  the Brain folder.
-- `rm-brain exclude "<name>"` excludes a notebook after the fact **and purges** its already
-  indexed pages and images (and keeps it excluded on future syncs).
-- `rm-brain purge` deletes the entire local index.
+- **Local-first, always.** `db.sqlite`, page images, and the manifest live in one folder
+  (`~/.rm-brain` by default) and never leave your machine as a whole.
+- **The only things that ever go over the network** are (a) individual page images sent to the
+  Claude API during `sync`, and (b) individual queries + retrieved snippets sent through MCP
+  while you search in Claude Desktop.
+- **Opt-in by folder.** Nothing is indexed unless you put the notebook in your Brain folder.
+- **The folder is the source of truth.** Remove a notebook from it and the next `sync` prunes
+  it from your local index — pages and images included.
+- **Hard exclusion always wins.** A notebook whose name matches `/^\./`, `/private/i`, or
+  `/noindex/i` is skipped entirely, even inside the Brain folder.
+- **Read-only cloud access.** rm-brain only ever *reads* from reMarkable (`list` / `stat` /
+  `get`); it never uploads or modifies anything.
+- **No telemetry.** rm-brain phones home to nobody. See [SECURITY.md](./SECURITY.md).
 
 ## Prerequisites
 
-- **Node.js 20+**
-- **rmapi** — reMarkable Cloud CLI. Use the **[`ddvk/rmapi`](https://github.com/ddvk/rmapi)
-  `sync15` build** (grab a release binary or build the `sync15` branch). reMarkable's newer
-  cloud sync protocol returns HTTP 410 with older rmapi builds. Pair it once (it prompts for
-  a one-time code from <https://my.remarkable.com/device/desktop/connect>).
-- **rmc** — renders `.rm` v6 pages: `pipx install rmc`
-- **librsvg** (`rsvg-convert`): `brew install librsvg`
-- **Anthropic API key** — used only during `sync` for handwriting extraction.
+| Tool | Why | Install |
+| --- | --- | --- |
+| **Node.js 20+** | runtime | [nodejs.org](https://nodejs.org) |
+| **rmapi** (ddvk `sync15` build) | reMarkable Cloud CLI | [ddvk/rmapi releases](https://github.com/ddvk/rmapi/releases) — reMarkable's newer sync protocol returns HTTP 410 with older builds |
+| **rmc** | renders `.rm` v6 pages | `pipx install rmc` |
+| **librsvg** (`rsvg-convert`) | SVG → PNG | `brew install librsvg` |
+| **Anthropic API key** | handwriting extraction (used only during `sync`) | [console.anthropic.com](https://console.anthropic.com) |
 
-> **Safety note:** rm-brain only ever *reads* from your reMarkable cloud (`find`/`stat`/`get`).
-> It never uploads or modifies anything, so the metadata-corruption issues reMarkable has
-> attributed to rmapi *writes* don't apply here. Your notebooks stay untouched on the device
-> and in reMarkable's own cloud.
-
-## Install
+## Quickstart
 
 ```bash
-npm install
-npm run build
-npm link   # optional: puts `rm-brain` on your PATH
-```
+# 1. Install
+git clone https://github.com/gabrielanhaia/remarkable-brain.git
+cd remarkable-brain
+npm install && npm run build
+npm link            # puts `rm-brain` on your PATH
 
-## Setup
-
-One command does it all — run it and follow the prompts:
-
-```bash
+# 2. Guided setup (pairs rmapi, saves your API key, wires Claude Desktop)
 rm-brain setup
+
+# 3. On the tablet: create a "Brain" folder, move a notebook in, let it sync
+rm-brain sync
+
+# 4. Fully quit & reopen Claude Desktop, then just ask it about your notes
 ```
 
-The wizard checks your tools, pairs rmapi if needed, **prompts for your Anthropic API key
-once and saves it** to `~/.rm-brain/config.json` (chmod 600, so you never re-`export` it),
-helps you opt a notebook in, detects it, offers to run the first sync, and can write your
-Claude Desktop config automatically. Re-run it anytime — it's idempotent.
-
-Prefer to wire Claude Desktop by hand? The MCP block looks like this — paste it into
-`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) and restart Claude
-Desktop:
-
-```json
-{
-  "mcpServers": {
-    "rm-brain": { "command": "rm-brain", "args": ["mcp"], "env": { "RM_BRAIN_HOME": "/Users/you/.rm-brain" } }
-  }
-}
-```
+The `setup` wizard checks your tools, pairs rmapi, **prompts for your API key once and saves
+it** (to `~/.rm-brain/config.json`, chmod 600 — no re-`export` needed), helps you pick the
+Brain folder, offers to run the first sync, and can write your Claude Desktop config
+automatically. Re-run it anytime — it's idempotent.
 
 ## Usage
 
-1. On the tablet, move a notebook into your `Brain` folder (and let it sync to the reMarkable cloud).
-2. Index it:
-   ```bash
-   export ANTHROPIC_API_KEY=sk-ant-...
-   rm-brain sync
-   ```
-3. Ask Claude Desktop about your notes in plain language.
+Once a notebook is indexed and Claude Desktop is connected, just talk to Claude:
+
+- *"What are my open loops?"* / *"What did I forget to follow up on?"*
+- *"Search my notes for the Atlas pricing decision."*
+- *"How has my thinking on the onboarding flow evolved?"* (entity timeline)
+- *"Show me the page where I sketched the architecture."*
 
 ### CLI reference
 
 | Command | What it does |
 | --- | --- |
-| `rm-brain setup` | Interactive setup wizard; prints the Claude Desktop config |
-| `rm-brain sync` | Pull `#brain` notebooks, render, extract, index |
+| `rm-brain setup` | Interactive setup wizard (start here) |
+| `rm-brain sync` | Pull Brain-folder notebooks, render, extract, index |
+| `rm-brain reindex` | Re-extract all indexed pages (after a prompt/model change) |
 | `rm-brain search "<query>"` | Full-text search from the terminal |
 | `rm-brain list` | Show indexed notebooks and page counts |
 | `rm-brain info` | Where the data lives + stats |
@@ -138,7 +128,9 @@ Desktop:
 | `rm-brain doctor` | Check dependencies |
 | `rm-brain mcp` | Start the MCP server (Claude Desktop runs this) |
 
-## Configuration
+### Configuration
+
+All config is via environment variables (env wins) or the saved store (`~/.rm-brain/config.json`).
 
 | Env var | Default | Purpose |
 | --- | --- | --- |
@@ -146,27 +138,71 @@ Desktop:
 | `RM_BRAIN_FOLDER` | `/Brain` | reMarkable folder whose notebooks get indexed (case-insensitive) |
 | `RMAPI_BIN` | `rmapi` | Path/name of the rmapi binary (ddvk sync15 build) |
 | `RMC_BIN` | `rmc` | Path/name of the rmc renderer |
-| `RSVG_BIN` | `rsvg-convert` | Path/name of rsvg-convert (SVG→PNG) |
+| `RSVG_BIN` | `rsvg-convert` | Path/name of rsvg-convert |
 | `ANTHROPIC_API_KEY` | — | Required only for `sync` (extraction) |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | Vision model for extraction |
 
-## Cost
+### Portability & backup
 
-`sync` makes **one** Claude vision call per new or changed page (change detection means
-unchanged pages are never reprocessed). Pick a cheaper or stronger model via
-`ANTHROPIC_MODEL`.
+The whole index is one self-contained folder, so:
 
-## A note on tags
+- **Back up:** `rm-brain backup [dest.tar.gz]`, or just copy `~/.rm-brain`.
+- **Roam / auto-backup:** point `RM_BRAIN_HOME` at a Dropbox/iCloud/Syncthing folder.
+- **Restore:** extract the archive anywhere and point `RM_BRAIN_HOME` at it.
 
-Tag support depends on your installed `rmapi` surfacing document tags. If it can't, tagged
-documents look untagged and are simply skipped (fail-safe — nothing is sent). In that case,
-put `#brain` in the notebook's **name** instead, or upgrade rmapi.
+## Troubleshooting
 
-## Not in v1 (on purpose)
+<details>
+<summary><b>rmapi says "failed to build documents tree … status 410"</b></summary>
 
-No vector search / embeddings (FTS5 keyword search only), no notifications or daily digests,
-no summary dashboard, no web UI. This stays a tool you reach for, not one that reaches for you.
+Your reMarkable account is on the newer sync protocol. Use the
+[**ddvk `sync15` build**](https://github.com/ddvk/rmapi/releases) of rmapi (a release binary is
+easiest), not the original `juruen/rmapi`. Then re-run `rm-brain doctor`.
+</details>
+
+<details>
+<summary><b>Claude Desktop gives empty results even though the note exists</b></summary>
+
+Claude Desktop launches the MCP server once at startup and keeps it running. After any
+`rm-brain` update, **fully quit Claude Desktop (⌘Q, not just close the window)** and reopen it
+so it reloads the server.
+</details>
+
+<details>
+<summary><b>Claude answers from the calendar/memory instead of my notes</b></summary>
+
+Add a one-line personal instruction in **Claude Desktop → Settings → Profile / Custom
+Instructions**: *"I keep my handwritten notes in rm-brain. For anything about my tasks, plans,
+or notes, use the rm-brain tools first."* The server also ships proactive instructions, but a
+personal instruction is the most reliable nudge.
+</details>
+
+<details>
+<summary><b>My notebook isn't being indexed</b></summary>
+
+Make sure it's **inside the Brain folder** (case-insensitive) and that the tablet has **synced
+to the cloud** (Wi-Fi on). Then run `rm-brain sync`. Notebooks named `private`/`noindex`/dotted
+are skipped by design.
+</details>
+
+<details>
+<summary><b>I changed the extraction prompt / model — old pages didn't update</b></summary>
+
+A normal `sync` skips pages whose image is unchanged. Run `rm-brain reindex` to re-extract
+everything.
+</details>
+
+## Roadmap / not in v1 (on purpose)
+
+No vector search / embeddings (FTS5 keyword search only), no notifications or daily digests, no
+summary dashboard, no web UI. This stays a tool you reach for, not one that reaches for you.
+Ideas and PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Contributing
+
+Contributions are very welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) to get set up,
+and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md). Security issues: [SECURITY.md](./SECURITY.md).
 
 ## License
 
-MIT
+[MIT](./LICENSE) © Gabriel Anhaia
