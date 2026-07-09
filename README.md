@@ -11,9 +11,9 @@
 
 [![Website](https://img.shields.io/badge/website-xgabriel.com-6E56CF?style=for-the-badge&logo=safari&logoColor=white)](https://xgabriel.com)
 &nbsp;
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/gabrielanhaia)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/anhaia)
 
-**Built by [Gabriel Anhaia](https://xgabriel.com) · [☕ Buy me a coffee](https://www.buymeacoffee.com/gabrielanhaia)**
+**Built by [Gabriel Anhaia](https://xgabriel.com) · [☕ Buy me a coffee](https://buymeacoffee.com/anhaia)**
 
 </div>
 
@@ -228,7 +228,7 @@ If rm-brain is useful to you, consider supporting development — it genuinely h
 project going:
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/gabrielanhaia">
+  <a href="https://buymeacoffee.com/anhaia">
     <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕%20support-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee">
   </a>
   &nbsp;&nbsp;
@@ -244,5 +244,5 @@ You can also ⭐ star the repo — it helps others discover it.
 [MIT](./LICENSE) © [Gabriel Anhaia](https://xgabriel.com)
 
 <div align="center">
-  <sub>Built by <a href="https://xgabriel.com">Gabriel Anhaia</a> · ☕ <a href="https://www.buymeacoffee.com/gabrielanhaia">Buy me a coffee</a></sub>
+  <sub>Built by <a href="https://xgabriel.com">Gabriel Anhaia</a> · ☕ <a href="https://buymeacoffee.com/anhaia">Buy me a coffee</a></sub>
 </div>
