@@ -3,6 +3,7 @@ import {
   EXTRACTION_TOOL,
   EXTRACTION_PROMPT,
   PageExtractionSchema,
+  normalizeEntityType,
   type PageExtraction,
 } from './schema.js';
 
@@ -46,7 +47,17 @@ export async function extractPage(opts: {
     const res = await opts.client.messages.create(request);
     const toolUse = res.content.find((c) => c.type === 'tool_use' && c.name === 'record_page');
     const parsed = PageExtractionSchema.safeParse(toolUse?.input);
-    if (parsed.success) return parsed.data;
+    if (parsed.success) {
+      // Canonicalize entity types onto the fixed vocabulary so the same real thing isn't split
+      // across synonymous types (Location/Place, Item/Topic) into duplicate entities.
+      return {
+        ...parsed.data,
+        entities: parsed.data.entities.map((e) => ({
+          name: e.name.trim(),
+          type: normalizeEntityType(e.type),
+        })),
+      };
+    }
     lastErr = parsed.error;
   }
   throw new Error(`extraction returned invalid output: ${String(lastErr)}`);

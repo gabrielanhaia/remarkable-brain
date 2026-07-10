@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 import { extractPage } from '../src/extraction/extract.js';
-import { PageExtractionSchema } from '../src/extraction/schema.js';
+import { PageExtractionSchema, normalizeEntityType } from '../src/extraction/schema.js';
 import { writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -42,6 +42,46 @@ test('extractPage sends a vision + forced-tool request and validates output', as
   expect(arg.messages[0].content.some((c: any) => c.type === 'image')).toBe(true);
   expect(() => PageExtractionSchema.parse(out)).not.toThrow();
   expect(out.entities[0]!.name).toBe('Acme');
+});
+
+test('normalizeEntityType folds synonyms onto the fixed vocabulary', () => {
+  expect(normalizeEntityType('Location')).toBe('place');
+  expect(normalizeEntityType('Place')).toBe('place');
+  expect(normalizeEntityType('Item')).toBe('topic');
+  expect(normalizeEntityType('Organization')).toBe('company');
+  expect(normalizeEntityType('trip')).toBe('event');
+  expect(normalizeEntityType('wizard')).toBe('other'); // unknown → other
+});
+
+test('extractPage canonicalizes entity types from the model', async () => {
+  const client = {
+    messages: {
+      create: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'tool_use',
+            name: 'record_page',
+            input: {
+              extracted_text: 'Trip planning',
+              page_type: 'idea',
+              // model emitted synonymous/odd types — these must be folded
+              entities: [
+                { name: 'Lisbon', type: 'Location' },
+                { name: 'Rice', type: 'Item' },
+              ],
+              open_loop: false,
+              open_loop_description: '',
+            },
+          },
+        ],
+      }),
+    },
+  };
+  const out = await extractPage({ imagePath: pngFixture(), model: 'm', client });
+  expect(out.entities).toEqual([
+    { name: 'Lisbon', type: 'place' },
+    { name: 'Rice', type: 'topic' },
+  ]);
 });
 
 test('extractPage retries once on invalid output then throws', async () => {

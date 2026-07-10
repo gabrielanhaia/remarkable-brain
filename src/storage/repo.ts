@@ -324,11 +324,22 @@ export class Repo {
   }
 
   listEntities(): { name: string; type: string; pageCount: number }[] {
+    // Group by NAME (case-insensitive), not by (name,type): the timeline already treats an entity
+    // as its name, so the same real thing tagged with different types must collapse into one card.
+    // `type` is the type of that name's most-mentioned variant; pageCount is DISTINCT pages.
     return this.db
       .prepare(
-        `SELECT e.name, e.type, COUNT(pe.page_id) AS pageCount
+        `SELECT e.name AS name,
+                (SELECT e2.type FROM entities e2
+                   JOIN page_entities pe2 ON pe2.entity_id = e2.id
+                  WHERE e2.name = e.name COLLATE NOCASE
+                  GROUP BY e2.id
+                  ORDER BY COUNT(pe2.page_id) DESC, e2.type ASC
+                  LIMIT 1) AS type,
+                COUNT(DISTINCT pe.page_id) AS pageCount
          FROM entities e JOIN page_entities pe ON pe.entity_id = e.id
-         GROUP BY e.id ORDER BY pageCount DESC, e.name`
+         GROUP BY e.name COLLATE NOCASE
+         ORDER BY pageCount DESC, e.name`
       )
       .all() as { name: string; type: string; pageCount: number }[];
   }

@@ -86,6 +86,16 @@ test('excluded notebooks are hidden from search and tracked by id', () => {
   expect(repo.listExcludedIds()).toEqual(['n1']);
 });
 
+test('listEntities collapses one name tagged with different types into a single entry', () => {
+  // The same real thing extracted as two synonymous types across two pages.
+  repo.linkEntities('p1', [{ name: 'Lisbon', type: 'place' }]);
+  repo.linkEntities('p2', [{ name: 'Lisbon', type: 'location' }]); // pre-normalization-style dup
+  const list = repo.listEntities();
+  const lisbon = list.filter((e) => e.name === 'Lisbon');
+  expect(lisbon.length).toBe(1); // one card, not two
+  expect(lisbon[0]!.pageCount).toBe(2); // both pages counted
+});
+
 test('linkEntities replaces a page\'s links instead of accumulating them', () => {
   // p1 starts linked to Acme (from beforeEach). Re-extraction now finds Beta instead.
   repo.linkEntities('p1', [{ name: 'Beta', type: 'company' }]);
