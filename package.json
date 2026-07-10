@@ -7,7 +7,7 @@
   "type": "module",
   "bin": { "rm-brain": "dist/cli.js" },
   "exports": "./dist/index.js",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": ["dist", "web/dist", "README.md", "LICENSE"],
   "engines": { "node": ">=20" },
   "keywords": [
     "remarkable",
@@ -31,7 +31,9 @@
     "url": "https://github.com/gabrielanhaia/remarkable-brain/issues"
   },
   "scripts": {
-    "build": "tsup src/cli.ts src/index.ts src/mcp/server.ts --format esm --clean",
+    "build": "npm run build:web && npm run build:cli",
+    "build:cli": "tsup src/cli.ts src/index.ts src/mcp/server.ts src/web/server.ts --format esm --clean",
+    "build:web": "npm --prefix web install && npm --prefix web run build",
     "dev": "tsx src/cli.ts",
     "mcp": "tsx src/mcp/server.ts",
     "test": "vitest run",

@@ -59,6 +59,26 @@ export interface OpenLoop {
   writtenAt: string | null;
   description: string | null;
 }
+/** A page row as listed inside a single notebook (thumbnail grid). */
+export interface NotebookPageRow {
+  id: string;
+  pageNumber: number;
+  writtenAt: string | null;
+  pageType: string | null;
+  openLoop: boolean;
+  imagePath: string | null;
+}
+/** A recently-written page across all (non-excluded) notebooks, for the overview. */
+export interface RecentPageRow {
+  id: string;
+  notebookId: string;
+  notebookName: string;
+  pageNumber: number;
+  writtenAt: string | null;
+  pageType: string | null;
+  openLoop: boolean;
+  imagePath: string | null;
+}
 
 export class Repo {
   constructor(private db: DB) {}
@@ -202,6 +222,35 @@ export class Repo {
         )
         .all() as { id: string; name: string; excluded: number; pageCount: number }[]
     ).map((r) => ({ id: r.id, name: r.name, excluded: !!r.excluded, pageCount: r.pageCount }));
+  }
+
+  /** Pages of one notebook, ordered by page number — for the notebook-detail thumbnail grid. */
+  listNotebookPages(notebookId: string): NotebookPageRow[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT id, page_number AS pageNumber, written_at AS writtenAt, page_type AS pageType,
+                  open_loop AS openLoop, image_path AS imagePath
+           FROM pages WHERE notebook_id = ? ORDER BY page_number ASC`
+        )
+        .all(notebookId) as (Omit<NotebookPageRow, 'openLoop'> & { openLoop: number })[]
+    ).map((r) => ({ ...r, openLoop: !!r.openLoop }));
+  }
+
+  /** Most recently-written pages across all non-excluded notebooks — for the overview. */
+  recentPages(limit = 12): RecentPageRow[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT p.id, p.notebook_id AS notebookId, n.name AS notebookName, p.page_number AS pageNumber,
+                  p.written_at AS writtenAt, p.page_type AS pageType, p.open_loop AS openLoop,
+                  p.image_path AS imagePath
+           FROM pages p JOIN notebooks n ON n.id = p.notebook_id
+           WHERE n.excluded = 0
+           ORDER BY p.written_at DESC, p.page_number DESC LIMIT ?`
+        )
+        .all(limit) as (Omit<RecentPageRow, 'openLoop'> & { openLoop: number })[]
+    ).map((r) => ({ ...r, openLoop: !!r.openLoop }));
   }
 
   getEntityTimeline(entityName: string): TimelineEntry[] {

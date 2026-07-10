@@ -26,6 +26,14 @@ import { createRenderer } from './sync/render.js';
 import { runSync, type SyncSummary } from './sync/sync.js';
 import { extractPage, createAnthropicClient } from './extraction/extract.js';
 
+/** Read `--flag value` or `--flag=value` from an argv slice; returns undefined if absent. */
+function flagValue(args: string[], flag: string): string | undefined {
+  const i = args.indexOf(flag);
+  if (i !== -1 && i + 1 < args.length) return args[i + 1];
+  const eq = args.find((a) => a.startsWith(`${flag}=`));
+  return eq ? eq.slice(flag.length + 1) : undefined;
+}
+
 function hasBin(bin: string): boolean {
   try {
     execFileSync(process.platform === 'win32' ? 'where' : 'which', [bin], { stdio: 'ignore' });
@@ -273,6 +281,17 @@ async function main() {
       await import('./mcp/server.js');
       break;
     }
+    case 'web': {
+      const { startWebServer } = await import('./web/server.js');
+      const port = flagValue(rest, '--port');
+      const host = flagValue(rest, '--host');
+      await startWebServer({
+        port: port ? Number(port) : undefined,
+        host: host || undefined,
+        open: !rest.includes('--no-open'),
+      });
+      break;
+    }
     default:
       console.log(
         [
@@ -290,6 +309,8 @@ async function main() {
           '  purge            delete the entire local index',
           '  doctor           check dependencies',
           '  mcp              start the MCP server (for Claude Desktop)',
+          '  web              open the local read-only web app in your browser',
+          '                     [--port 4123] [--host 127.0.0.1] [--no-open]',
         ].join('\n')
       );
   }
