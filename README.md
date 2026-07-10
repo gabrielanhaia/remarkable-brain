@@ -15,6 +15,12 @@
 
 **Built by [Gabriel Anhaia](https://xgabriel.com) · [☕ Buy me a coffee](https://buymeacoffee.com/anhaia)**
 
+<br/>
+
+<img src="docs/rm-brain-hero.gif" width="840" alt="rm-brain web app in motion — dashboard, typo-tolerant search, notebooks grouped by folder, page detail (scan beside transcription), and entities" />
+
+<sub>The local web app — dashboard · search · notebooks · page detail · entities. Fictional example data.</sub>
+
 </div>
 
 ---
