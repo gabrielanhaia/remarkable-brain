@@ -49,6 +49,8 @@ export interface NotebookSummary {
   name: string;
   excluded: boolean;
   pageCount: number;
+  /** Subfolder within the Brain folder ('' when directly inside it), for folder grouping. */
+  folderPath: string;
 }
 
 /** GET /api/notebooks/:id — notebook meta + its pages as a thumbnail list. */

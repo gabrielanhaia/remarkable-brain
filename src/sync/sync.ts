@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { isPathHardExcluded } from '../config.js';
+import { isPathHardExcluded, relativeFolder } from '../config.js';
 import type { Repo } from '../storage/repo.js';
 import type { Rmapi } from './rmapi.js';
 import type { Renderer } from './render.js';
@@ -76,7 +76,11 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
       log(`downloading ${doc.name}…`);
       archivePath = await deps.rmapi.downloadDoc(doc.path, deps.tmpDir);
       const pages = await deps.renderer.renderDocToPngs(archivePath, deps.tmpDir, doc.id);
-      deps.repo.upsertNotebook({ id: doc.id, name: doc.name });
+      deps.repo.upsertNotebook({
+        id: doc.id,
+        name: doc.name,
+        folderPath: relativeFolder(doc.path, deps.brainFolder),
+      });
       const destDir = join(deps.imagesDir, doc.id);
       mkdirSync(destDir, { recursive: true });
 

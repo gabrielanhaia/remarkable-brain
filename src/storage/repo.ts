@@ -83,15 +83,17 @@ export interface RecentPageRow {
 export class Repo {
   constructor(private db: DB) {}
 
-  upsertNotebook(n: { id: string; name: string; excluded?: boolean }): void {
+  upsertNotebook(n: { id: string; name: string; excluded?: boolean; folderPath?: string }): void {
     this.db
       .prepare(
-        // Preserve the existing `excluded` flag on conflict: a routine sync must
-        // never silently un-exclude a notebook the user excluded on purpose.
-        `INSERT INTO notebooks (id, name, excluded) VALUES (@id, @name, @excluded)
-         ON CONFLICT(id) DO UPDATE SET name = excluded.name`
+        // Preserve the existing `excluded` flag on conflict: a routine sync must never silently
+        // un-exclude a notebook the user excluded on purpose. name/folder_path do track the
+        // device (a renamed or moved notebook updates both).
+        `INSERT INTO notebooks (id, name, excluded, folder_path)
+         VALUES (@id, @name, @excluded, @folderPath)
+         ON CONFLICT(id) DO UPDATE SET name = excluded.name, folder_path = excluded.folder_path`
       )
-      .run({ id: n.id, name: n.name, excluded: n.excluded ? 1 : 0 });
+      .run({ id: n.id, name: n.name, excluded: n.excluded ? 1 : 0, folderPath: n.folderPath ?? '' });
   }
 
   setExcluded(notebookId: string, excluded: boolean): void {
@@ -235,16 +237,34 @@ export class Repo {
     };
   }
 
-  listNotebooks(): { id: string; name: string; excluded: boolean; pageCount: number }[] {
+  listNotebooks(): {
+    id: string;
+    name: string;
+    excluded: boolean;
+    pageCount: number;
+    folderPath: string;
+  }[] {
     return (
       this.db
         .prepare(
-          `SELECT n.id, n.name, n.excluded, COUNT(p.id) AS pageCount
+          `SELECT n.id, n.name, n.excluded, n.folder_path AS folderPath, COUNT(p.id) AS pageCount
            FROM notebooks n LEFT JOIN pages p ON p.notebook_id = n.id
-           GROUP BY n.id ORDER BY n.name`
+           GROUP BY n.id ORDER BY n.folder_path, n.name`
         )
-        .all() as { id: string; name: string; excluded: number; pageCount: number }[]
-    ).map((r) => ({ id: r.id, name: r.name, excluded: !!r.excluded, pageCount: r.pageCount }));
+        .all() as {
+        id: string;
+        name: string;
+        excluded: number;
+        pageCount: number;
+        folderPath: string;
+      }[]
+    ).map((r) => ({
+      id: r.id,
+      name: r.name,
+      excluded: !!r.excluded,
+      pageCount: r.pageCount,
+      folderPath: r.folderPath,
+    }));
   }
 
   /** Pages of one notebook, ordered by page number — for the notebook-detail thumbnail grid. */

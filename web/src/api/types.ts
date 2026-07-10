@@ -82,6 +82,8 @@ export interface NotebookSummary {
   name: string;
   excluded: boolean;
   pageCount: number;
+  /** Subfolder within the Brain folder ('' when directly inside it), for folder grouping. */
+  folderPath: string;
 }
 
 export interface NotebookPage {

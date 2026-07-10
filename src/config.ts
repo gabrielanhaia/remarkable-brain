@@ -86,3 +86,20 @@ export function isPathHardExcluded(remotePath: string, brainFolder: string): boo
     .filter(Boolean)
     .some((seg) => isHardExcluded(seg));
 }
+
+/**
+ * The subfolder a document sits in, relative to the Brain folder — '' when it is directly inside
+ * the Brain folder, or e.g. 'Work/Meetings' for `/Brain/Work/Meetings/Standup`. Used to group
+ * notebooks by their reMarkable folder in the UI.
+ */
+export function relativeFolder(remotePath: string, brainFolder: string): string {
+  const f = normalizeFolder(brainFolder).toLowerCase();
+  const lower = remotePath.toLowerCase();
+  const rel =
+    f !== '' && lower.startsWith(`${f}/`)
+      ? remotePath.slice(f.length + 1)
+      : remotePath.replace(/^\/+/, '');
+  const segs = rel.split('/').filter(Boolean);
+  segs.pop(); // drop the document name → just the folder chain
+  return segs.join('/');
+}

@@ -5,6 +5,7 @@ import {
   isPathHardExcluded,
   isUnderFolder,
   normalizeFolder,
+  relativeFolder,
   HARD_EXCLUDE_PATTERNS,
 } from '../src/config.js';
 
@@ -65,5 +66,12 @@ describe('config', () => {
     expect(isPathHardExcluded('/Brain/Work/Meeting Notes', '/Brain')).toBe(false);
     // base folder is matched case-insensitively and not itself scanned for patterns
     expect(isPathHardExcluded('/brain/Private/x', 'Brain')).toBe(true);
+  });
+
+  test('relativeFolder returns the subfolder chain below the Brain folder', () => {
+    expect(relativeFolder('/Brain/Standup', '/Brain')).toBe(''); // directly inside
+    expect(relativeFolder('/Brain/Work/Standup', '/Brain')).toBe('Work');
+    expect(relativeFolder('/Brain/Work/Meetings/Standup', '/Brain')).toBe('Work/Meetings');
+    expect(relativeFolder('/brain/Work/Standup', 'Brain')).toBe('Work'); // case-insensitive base
   });
 });

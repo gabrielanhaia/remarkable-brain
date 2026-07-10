@@ -13,7 +13,8 @@ export function migrate(db: DB): void {
     CREATE TABLE IF NOT EXISTS notebooks (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      excluded INTEGER NOT NULL DEFAULT 0
+      excluded INTEGER NOT NULL DEFAULT 0,
+      folder_path TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS pages (
@@ -62,4 +63,11 @@ export function migrate(db: DB): void {
       INSERT INTO pages_fts(rowid, extracted_text) VALUES (new.rowid, new.extracted_text);
     END;
   `);
+
+  // Additive migration for databases created before folder_path existed. CREATE TABLE IF NOT
+  // EXISTS above already includes the column for fresh installs; this backfills older ones.
+  const notebookCols = db.prepare(`PRAGMA table_info(notebooks)`).all() as { name: string }[];
+  if (!notebookCols.some((c) => c.name === 'folder_path')) {
+    db.exec(`ALTER TABLE notebooks ADD COLUMN folder_path TEXT NOT NULL DEFAULT ''`);
+  }
 }
