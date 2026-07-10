@@ -382,6 +382,8 @@ export class Repo {
   getEntityTimeline(entityName: string): TimelineEntry[] {
     return this.db
       .prepare(
+        // GROUP BY the page: a name that exists as several type-variants (e.g. topic + item) links
+        // the same page more than once, and without this the page would appear twice in its timeline.
         `SELECT p.id AS pageId, n.name AS notebookName, p.page_number AS pageNumber,
                 p.written_at AS writtenAt, substr(p.extracted_text,1,160) AS snippet
          FROM page_entities pe
@@ -389,6 +391,7 @@ export class Repo {
          JOIN pages p ON p.id = pe.page_id
          JOIN notebooks n ON n.id = p.notebook_id
          WHERE e.name = ? COLLATE NOCASE AND n.excluded = 0
+         GROUP BY p.id
          ORDER BY p.written_at ASC, p.page_number ASC`
       )
       .all(entityName) as TimelineEntry[];

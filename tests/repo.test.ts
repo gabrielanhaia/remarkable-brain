@@ -70,6 +70,17 @@ test('getEntityTimeline is chronological', () => {
   expect(t.map((x) => x.pageId)).toEqual(['p1', 'p2']);
 });
 
+test('getEntityTimeline lists each page once even when a name has multiple type-variants', () => {
+  // Same page linked to the same name under two synonymous types (pre-normalization data).
+  repo.linkEntities('p1', [
+    { name: 'Zephyr', type: 'place' },
+    { name: 'Zephyr', type: 'location' },
+  ]);
+  const t = repo.getEntityTimeline('Zephyr');
+  expect(t.length).toBe(1); // one page, not two
+  expect(t[0]!.pageId).toBe('p1');
+});
+
 test('getOpenLoops most recent first', () => {
   const loops = repo.getOpenLoops();
   expect(loops.length).toBe(1);
