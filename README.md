@@ -138,6 +138,15 @@ way to **browse and search** your indexed notebooks and view the actual scanned 
 the browser. It complements the conversation, it doesn't replace it: **asking questions still
 happens in Claude Desktop** (over MCP); the web app is for seeing and searching.
 
+![rm-brain web — Dashboard](docs/screenshots/dashboard.png)
+
+<p align="center">
+  <img src="docs/screenshots/search.png" width="49%" alt="rm-brain web — full-text search with filters and thumbnails" />
+  <img src="docs/screenshots/page-detail.png" width="49%" alt="rm-brain web — page detail: scanned handwriting beside the transcription" />
+</p>
+
+<sub>Screens shown with fictional example data. Everything runs on your machine.</sub>
+
 ```bash
 rm-brain web                       # builds nothing — opens http://localhost:4123 in your browser
 rm-brain web --port 8080           # pick a different port
