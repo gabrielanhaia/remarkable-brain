@@ -162,7 +162,29 @@ export function Layout({ children }: { children: ReactNode }) {
         </main>
 
         <footer className="border-t border-line px-6 py-5 text-center text-xs text-faint">
-          rm-brain · a private, local view of your reMarkable notes
+          <p>rm-brain · a private, local view of your reMarkable notes</p>
+          <p className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+            <a
+              href="https://github.com/gabrielanhaia/remarkable-brain"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-1 transition-colors hover:text-pen"
+            >
+              <GlyphGitHub />
+              GitHub
+            </a>
+            <span aria-hidden>·</span>
+            <span>Built by Gabriel Anhaia</span>
+            <span aria-hidden>·</span>
+            <a
+              href="https://xgabriel.com"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-pen transition-opacity hover:opacity-70"
+            >
+              xgabriel.com
+            </a>
+          </p>
         </footer>
       </div>
     </div>
@@ -242,5 +264,12 @@ function GlyphMenu() {
     <Svg>
       <path d="M4 6h16M4 12h16M4 18h16" />
     </Svg>
+  );
+}
+function GlyphGitHub() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5" aria-hidden>
+      <path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.85 9.73.5.1.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.79.62-3.38-1.37-3.38-1.37-.46-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.23-.26-4.57-1.14-4.57-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.36 9.36 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.35 4.79-4.59 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z" />
+    </svg>
   );
 }
