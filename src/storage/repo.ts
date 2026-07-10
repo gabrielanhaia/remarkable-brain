@@ -289,7 +289,18 @@ export class Repo {
     if (!row) return undefined;
     const entities = this.db
       .prepare(
-        `SELECT e.name, e.type FROM page_entities pe JOIN entities e ON e.id = pe.entity_id WHERE pe.page_id = ?`
+        // De-duplicate by name (case-insensitive): a page that linked the same real entity under
+        // two synonymous types must not render it twice. `type` is the name's most-mentioned
+        // variant, matching how listEntities picks it — so the glyph is consistent everywhere.
+        `SELECT e.name AS name,
+                (SELECT e2.type FROM entities e2
+                   JOIN page_entities pe2 ON pe2.entity_id = e2.id
+                  WHERE e2.name = e.name COLLATE NOCASE
+                  GROUP BY e2.id ORDER BY COUNT(pe2.page_id) DESC, e2.type ASC LIMIT 1) AS type
+         FROM page_entities pe JOIN entities e ON e.id = pe.entity_id
+         WHERE pe.page_id = ?
+         GROUP BY e.name COLLATE NOCASE
+         ORDER BY e.name`
       )
       .all(pageId) as { name: string; type: string }[];
     return {

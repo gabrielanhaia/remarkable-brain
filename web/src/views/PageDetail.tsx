@@ -182,7 +182,7 @@ function ScanViewer({
 
       {zoom && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-md animate-fade-in"
           onClick={() => setZoom(false)}
           role="dialog"
           aria-modal="true"

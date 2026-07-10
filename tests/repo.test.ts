@@ -107,6 +107,16 @@ test('listEntities collapses one name tagged with different types into a single 
   expect(lisbon[0]!.pageCount).toBe(2); // both pages counted
 });
 
+test('getPage de-duplicates a page\'s entities by name', () => {
+  // Same real entity linked to this page under two synonymous types (pre-normalization data).
+  repo.linkEntities('p1', [
+    { name: 'Zephyr', type: 'place' },
+    { name: 'Zephyr', type: 'location' },
+  ]);
+  const zephyr = repo.getPage('p1')!.entities.filter((e) => e.name === 'Zephyr');
+  expect(zephyr.length).toBe(1); // one chip, not two
+});
+
 test('linkEntities replaces a page\'s links instead of accumulating them', () => {
   // p1 starts linked to Acme (from beforeEach). Re-extraction now finds Beta instead.
   repo.linkEntities('p1', [{ name: 'Beta', type: 'company' }]);
