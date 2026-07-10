@@ -10,6 +10,34 @@ export function toFtsQuery(raw: string): string {
   return tokens.map((t) => `"${t}"`).join(' ');
 }
 
+/** Split arbitrary text into lowercase word/number tokens (same rule the FTS query uses). */
+export function queryTokens(raw: string): string[] {
+  return (raw.match(/[\p{L}\p{N}]+/gu) ?? []).map((t) => t.toLowerCase());
+}
+
+/**
+ * Levenshtein edit distance, bounded for early exit. Used to match a mistyped query token against
+ * indexed vocabulary terms — small inputs (single words), so the O(n·m) table is negligible.
+ */
+export function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  let curr = new Array<number>(n + 1);
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n]!;
+}
+
 export interface PageRecord {
   id: string;
   notebookId: string;
@@ -177,21 +205,65 @@ export class Repo {
     return imgs;
   }
 
+  /**
+   * Keyword search with graceful widening so partial words and typos still find pages:
+   *   1. prefix-AND — every token as a prefix (`"portug"*` finds "Portugal", stems match);
+   *   2. fuzzy fallback — only if step 1 finds nothing, each token is expanded to the indexed
+   *      vocabulary terms within a small edit distance (so "portgual" still finds "Portugal").
+   */
   searchNotes(query: string, limit = 20): SearchHit[] {
-    const match = toFtsQuery(query);
-    if (!match) return [];
-    return this.db
-      .prepare(
-        `SELECT p.id AS pageId, n.name AS notebookName, p.page_number AS pageNumber,
-                p.written_at AS writtenAt,
-                snippet(pages_fts, 0, '[', ']', '…', 12) AS snippet
-         FROM pages_fts
-         JOIN pages p ON p.rowid = pages_fts.rowid
-         JOIN notebooks n ON n.id = p.notebook_id
-         WHERE pages_fts MATCH ? AND n.excluded = 0
-         ORDER BY rank LIMIT ?`
-      )
-      .all(match, limit) as SearchHit[];
+    const tokens = queryTokens(query);
+    if (tokens.length === 0) return [];
+
+    const prefix = tokens.map((t) => `"${t}"*`).join(' ');
+    const primary = this.runFtsMatch(prefix, limit);
+    if (primary.length > 0) return primary;
+
+    const groups = tokens.map((t) => this.fuzzyExpand(t));
+    if (groups.some((g) => g.length === 0)) return [];
+    const fuzzy = groups.map((g) => `(${g.map((term) => `"${term}"*`).join(' OR ')})`).join(' ');
+    return this.runFtsMatch(fuzzy, limit);
+  }
+
+  /** Run one FTS5 MATCH expression. A malformed expression yields no rows rather than throwing. */
+  private runFtsMatch(matchExpr: string, limit: number): SearchHit[] {
+    if (!matchExpr) return [];
+    try {
+      return this.db
+        .prepare(
+          `SELECT p.id AS pageId, n.name AS notebookName, p.page_number AS pageNumber,
+                  p.written_at AS writtenAt,
+                  snippet(pages_fts, 0, '[', ']', '…', 12) AS snippet
+           FROM pages_fts
+           JOIN pages p ON p.rowid = pages_fts.rowid
+           JOIN notebooks n ON n.id = p.notebook_id
+           WHERE pages_fts MATCH ? AND n.excluded = 0
+           ORDER BY rank LIMIT ?`
+        )
+        .all(matchExpr, limit) as SearchHit[];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Vocabulary terms within a small edit distance of `token` (plus the token itself as a seed). */
+  private fuzzyExpand(token: string): string[] {
+    const L = token.length;
+    const maxDist = L <= 3 ? 0 : L <= 5 ? 1 : 2;
+    if (maxDist === 0) return [token]; // too short to fuzz safely — rely on the prefix match
+    let terms: { term: string }[] = [];
+    try {
+      terms = this.db
+        .prepare(`SELECT term FROM pages_vocab WHERE length(term) BETWEEN ? AND ?`)
+        .all(L - maxDist, L + maxDist) as { term: string }[];
+    } catch {
+      return [token];
+    }
+    const near = terms
+      .map((r) => r.term)
+      .filter((term) => levenshtein(token, term.toLowerCase()) <= maxDist);
+    if (!near.includes(token)) near.push(token);
+    return near.slice(0, 8);
   }
 
   getPage(pageId: string): PageFull | undefined {

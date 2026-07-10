@@ -54,6 +54,17 @@ test('searchNotes does not crash on FTS operator characters', () => {
   expect(repo.searchNotes('   ')).toEqual([]);
 });
 
+test('searchNotes matches partial words via prefix', () => {
+  expect(repo.searchNotes('Acm').length).toBe(2); // "Acm" → Acme on both pages
+  expect(repo.searchNotes('pric').length).toBe(1); // "pric" → pricing on p1
+});
+
+test('searchNotes tolerates spelling mistakes via a fuzzy fallback', () => {
+  expect(repo.searchNotes('Acne').length).toBe(2); // typo for "Acme" (edit distance 1)
+  expect(repo.searchNotes('pricign').length).toBe(1); // transposition of "pricing"
+  expect(repo.searchNotes('zzzzz').length).toBe(0); // nothing close → still empty
+});
+
 test('getEntityTimeline is chronological', () => {
   const t = repo.getEntityTimeline('Acme');
   expect(t.map((x) => x.pageId)).toEqual(['p1', 'p2']);

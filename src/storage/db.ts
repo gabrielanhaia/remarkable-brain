@@ -62,6 +62,10 @@ export function migrate(db: DB): void {
       INSERT INTO pages_fts(pages_fts, rowid, extracted_text) VALUES('delete', old.rowid, old.extracted_text);
       INSERT INTO pages_fts(rowid, extracted_text) VALUES (new.rowid, new.extracted_text);
     END;
+
+    -- Distinct indexed terms, for typo-tolerant search: the fuzzy fallback scans this vocabulary
+    -- for terms within a small edit distance of a mistyped query token.
+    CREATE VIRTUAL TABLE IF NOT EXISTS pages_vocab USING fts5vocab('pages_fts', 'row');
   `);
 
   // Additive migration for databases created before folder_path existed. CREATE TABLE IF NOT
