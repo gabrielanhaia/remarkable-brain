@@ -2,9 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Brand faces (self-hosted, SIL OFL): Newsreader · Geist · Geist Mono ──────────────────────── */
+@font-face {
+  font-family: 'Newsreader';
+  src: url('/fonts/Newsreader-Variable.ttf') format('truetype-variations');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Newsreader';
+  src: url('/fonts/Newsreader-Italic-Variable.ttf') format('truetype-variations');
+  font-weight: 200 800;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Variable.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Variable.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
+  /* Tokens as "R G B" triplets so Tailwind's `/opacity` modifiers work through the palette.
+     "Fine writing tool": fountain-pen ink on fine paper, light-primary, quiet semantics. */
   :root {
+    --paper: 241 238 230; /* #F1EEE6 the desk */
+    --sheet: 251 250 245; /* #FBFAF5 a page on it */
+    --ink: 27 26 22; /* #1B1A16 written text */
+    --muted: 108 104 94; /* #6C685E secondary */
+    --faint: 138 130 114; /* #8A8272 tertiary */
+    --line: 226 222 211; /* #E2DED3 hairline */
+    --pen: 36 67 92; /* #24435C fountain-pen ink — the one accent, never coral */
+    --pen-soft: 228 232 237; /* #E4E8ED pen wash */
+    --good: 62 125 90;
+    --med: 169 123 31;
+    --high: 178 58 46;
+    --low: 138 130 114;
+    /* A scanned sheet is a photographed physical object — cream paper, dark ink.
+       Fixed across BOTH themes so handwriting never inverts into invisibility. */
+    --scan-paper: 251 250 245;
+    --scan-ink: 43 41 36;
+    color-scheme: light;
+  }
+
+  :root[data-theme='dark'],
+  html.dark:root {
+    --paper: 25 23 20; /* #191714 */
+    --sheet: 34 31 26; /* #221F1A */
+    --ink: 236 231 220; /* #ECE7DC */
+    --muted: 180 172 155; /* #B4AC9B */
+    --faint: 148 138 121; /* #948A79 */
+    --line: 46 42 36; /* #2E2A24 */
+    --pen: 124 160 190; /* #7CA0BE */
+    --pen-soft: 35 43 51; /* #232B33 */
+    --good: 111 176 137;
+    --med: 214 169 74;
+    --high: 224 106 94;
+    --low: 148 138 121;
     color-scheme: dark;
+    /* --scan-paper / --scan-ink intentionally NOT overridden: a scan stays paper in the dark. */
   }
 
   html {
@@ -12,89 +78,82 @@
   }
 
   body {
-    @apply bg-ink-950 font-sans text-ivory antialiased;
-    /* Warm, layered atmosphere: a soft coral aura bleeding from the top-left,
-       over a faint dotted grid — evokes a lit desk, not a flat void. */
-    background-color: #100d0b;
-    background-image:
-      radial-gradient(900px 600px at 8% -6%, rgba(217, 119, 87, 0.12), transparent 60%),
-      radial-gradient(700px 500px at 100% 0%, rgba(240, 169, 136, 0.06), transparent 55%),
-      radial-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px);
-    background-size: auto, auto, 22px 22px;
-    background-attachment: fixed;
+    @apply bg-paper font-sans text-ink antialiased;
+    /* the faint grain of fine paper — a lit desk, not a flat void */
+    background-image: radial-gradient(rgb(var(--ink) / 0.02) 0.5px, transparent 0.5px);
+    background-size: 4px 4px;
     min-height: 100vh;
   }
 
   ::selection {
-    background: rgba(217, 119, 87, 0.35);
-    color: #f3ece2;
+    background: rgb(var(--pen) / 0.18);
+    color: rgb(var(--ink));
   }
 
-  /* Warm, thin scrollbars that match the desk. */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #3b3128 transparent;
+    scrollbar-color: rgb(var(--line)) transparent;
   }
   *::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   *::-webkit-scrollbar-thumb {
-    background-color: #3b3128;
+    background-color: rgb(var(--line));
     border-radius: 9999px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background-color: #4c3f34;
+    background-color: rgb(var(--muted) / 0.6);
   }
 
   :focus-visible {
-    outline: 2px solid #D97757;
+    outline: 2px solid rgb(var(--pen));
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 3px;
   }
 }
 
 @layer components {
-  /* A hairline card surface used across the app. */
+  /* A page resting on the desk: a real sheet with a soft, physical shadow. */
   .surface {
-    @apply rounded-xl border border-ink-700/70 bg-ink-900/70 backdrop-blur-sm;
+    @apply rounded-md border border-line bg-sheet shadow-lift;
   }
-
   .surface-hover {
-    @apply transition-all duration-200 hover:border-coral/40 hover:bg-ink-850 hover:shadow-lift;
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-pen/40;
   }
 
   /* Shimmering skeleton block. */
   .skeleton {
-    @apply relative overflow-hidden rounded-md bg-ink-800;
+    @apply relative overflow-hidden rounded-sm bg-line/60;
   }
   .skeleton::after {
     content: '';
     @apply absolute inset-0 -translate-x-full;
-    background-image: linear-gradient(
-      90deg,
-      transparent,
-      rgba(243, 236, 226, 0.06),
-      transparent
-    );
+    background-image: linear-gradient(90deg, transparent, rgb(var(--ink) / 0.05), transparent);
     animation: shimmer 1.6s infinite;
   }
 
-  /* Coral primary link/button treatment. */
-  .link-coral {
-    @apply text-coral transition-colors hover:text-coral-soft;
+  /* The fountain-pen link/action treatment. */
+  .link-pen {
+    @apply text-pen transition-opacity hover:opacity-70;
+  }
+
+  /* Faint ruled-paper lines, for scan sheets and thumbnails. */
+  .ruled {
+    background-image: repeating-linear-gradient(
+      transparent 0 29px,
+      rgb(var(--pen) / 0.06) 29px 30px
+    );
   }
 }
 
 @layer utilities {
-  /* Handwriting-scan images: subtle paper frame + graceful contrast. */
-  .scan-frame {
-    background-color: #f7f3ec;
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.5),
-      0 18px 50px -20px rgba(0, 0, 0, 0.8);
+  /* A scanned sheet: always cream paper with dark ink, in either theme. */
+  .scan-sheet {
+    background-color: rgb(var(--scan-paper));
+    color: rgb(var(--scan-ink));
   }
 
   .text-balance {

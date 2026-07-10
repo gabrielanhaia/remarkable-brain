@@ -49,11 +49,10 @@ export function Dashboard() {
               to={s.to}
               className="surface surface-hover group relative overflow-hidden p-5"
             >
-              <div className="absolute -right-6 -top-8 h-20 w-20 rounded-full bg-coral/5 blur-2xl transition-opacity group-hover:bg-coral/10" />
-              <div className="font-display text-4xl text-ivory tabular-nums">
+              <div className="font-display text-4xl font-bold text-ink tabular-nums">
                 {data.counts[s.key].toLocaleString()}
               </div>
-              <div className="mt-2 text-sm font-medium text-ivory-dim">{s.label}</div>
+              <div className="mt-2 text-sm font-medium text-muted">{s.label}</div>
             </Link>
           )
         )}
@@ -70,7 +69,7 @@ export function Dashboard() {
           {loading || !data ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                <Skeleton key={i} className="h-16 w-full rounded-md" />
               ))}
             </div>
           ) : data.recentOpenLoops.length === 0 ? (
@@ -112,11 +111,11 @@ function SectionTitle({ title, hint, to }: { title: string; hint?: string; to?: 
   return (
     <div className="mb-4 flex items-baseline justify-between">
       <div>
-        <h2 className="font-display text-xl text-ivory">{title}</h2>
-        {hint && <p className="text-xs text-ivory-faint">{hint}</p>}
+        <h2 className="font-display text-xl font-semibold text-ink">{title}</h2>
+        {hint && <p className="text-xs text-faint">{hint}</p>}
       </div>
       {to && (
-        <Link to={to} className="text-xs font-medium link-coral">
+        <Link to={to} className="text-xs font-medium link-pen">
           View all →
         </Link>
       )}
@@ -130,16 +129,16 @@ export function OpenLoopRow({ loop }: { loop: OpenLoop }) {
       to={routes.page(loop.pageId)}
       className="surface surface-hover group flex items-start gap-3 p-4"
     >
-      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-coral shadow-[0_0_12px_rgba(217,119,87,0.55)]" />
+      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-pen" />
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-sm text-ivory">
+        <p className="line-clamp-2 font-serif text-sm text-ink">
           {loop.description?.trim() || 'Open loop (no description captured)'}
         </p>
-        <p className="mt-1.5 truncate text-xs text-ivory-faint">
+        <p className="mt-1.5 truncate text-xs text-faint">
           {loop.notebookName} · p.{loop.pageNumber} · {formatRelative(loop.writtenAt)}
         </p>
       </div>
-      <span className="mt-0.5 text-ivory-faint opacity-0 transition-opacity group-hover:opacity-100">
+      <span className="mt-0.5 text-faint opacity-0 transition-opacity group-hover:opacity-100">
         →
       </span>
     </Link>

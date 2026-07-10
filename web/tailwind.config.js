@@ -1,54 +1,51 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
-  darkMode: 'class',
+  darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {
-      // Warm editorial dark palette. Coral accent + ivory text on warm charcoal.
+      // "Fine writing tool" palette — fountain-pen ink on fine paper. Tokens live in index.css as
+      // "R G B" triplets so every utility supports an /opacity modifier and both themes switch for free.
       colors: {
-        coral: {
-          DEFAULT: '#D97757',
-          soft: '#f0a988',
-          deep: '#b85c3f',
+        paper: 'rgb(var(--paper) / <alpha-value>)',
+        sheet: 'rgb(var(--sheet) / <alpha-value>)',
+        ink: 'rgb(var(--ink) / <alpha-value>)',
+        muted: 'rgb(var(--muted) / <alpha-value>)',
+        faint: 'rgb(var(--faint) / <alpha-value>)',
+        line: 'rgb(var(--line) / <alpha-value>)',
+        pen: {
+          DEFAULT: 'rgb(var(--pen) / <alpha-value>)',
+          soft: 'rgb(var(--pen-soft) / <alpha-value>)',
         },
-        ivory: {
-          DEFAULT: '#f3ece2',
-          dim: '#c9bfb2',
-          faint: '#8f857a',
-        },
-        // Warm near-black surfaces (never pure black; a touch of red/brown warmth).
-        ink: {
-          950: '#100d0b',
-          900: '#16110e',
-          850: '#1c1713',
-          800: '#231d18',
-          700: '#2e261f',
-          600: '#3b3128',
-          500: '#4c3f34',
+        good: 'rgb(var(--good) / <alpha-value>)',
+        med: 'rgb(var(--med) / <alpha-value>)',
+        high: 'rgb(var(--high) / <alpha-value>)',
+        low: 'rgb(var(--low) / <alpha-value>)',
+        scan: {
+          paper: 'rgb(var(--scan-paper) / <alpha-value>)',
+          ink: 'rgb(var(--scan-ink) / <alpha-value>)',
         },
       },
       fontFamily: {
-        display: ['"Iowan Old Style"', '"Palatino Linotype"', 'Palatino', '"Book Antiqua"', 'Georgia', 'serif'],
-        sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Helvetica', 'Arial', 'sans-serif'],
-        mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
+        // Newsreader is both the display voice and the "manuscript" (transcription) voice.
+        display: ['Newsreader', 'Iowan Old Style', 'Palatino', 'Georgia', 'serif'],
+        serif: ['Newsreader', 'Iowan Old Style', 'Palatino', 'Georgia', 'serif'],
+        sans: ['Geist', 'system-ui', '-apple-system', '"Segoe UI"', 'Helvetica', 'Arial', 'sans-serif'],
+        mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'monospace'],
       },
       boxShadow: {
-        card: '0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.6)',
-        lift: '0 2px 4px rgba(0,0,0,0.5), 0 16px 40px -16px rgba(0,0,0,0.7)',
-        glow: '0 0 0 1px rgba(217,119,87,0.35), 0 8px 30px -8px rgba(217,119,87,0.25)',
+        // A page has weight: a soft, real drop shadow, not a glassy glow.
+        card: '0 1px 0 rgb(var(--ink) / 0.03), 0 10px 24px -14px rgb(var(--ink) / 0.28)',
+        lift: '0 1px 0 rgb(var(--ink) / 0.03), 0 24px 44px -22px rgb(var(--ink) / 0.30), 0 5px 12px -8px rgb(var(--ink) / 0.22)',
       },
       keyframes: {
-        shimmer: {
-          '100%': { transform: 'translateX(100%)' },
-        },
+        shimmer: { '100%': { transform: 'translateX(100%)' } },
         'fade-up': {
           '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        'fade-in': {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
+        'fade-in': { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        'ink-draw': { '0%': { strokeDashoffset: '1' }, '100%': { strokeDashoffset: '0' } },
       },
       animation: {
         shimmer: 'shimmer 1.6s infinite',

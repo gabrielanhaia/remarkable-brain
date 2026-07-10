@@ -32,12 +32,12 @@ export function EntityTimeline({ name }: { name: string }) {
 
   return (
     <div className="animate-fade-up">
-      <nav className="mb-4 text-sm text-ivory-faint">
-        <Link to={routes.entities()} className="link-coral">
+      <nav className="mb-4 text-sm text-faint">
+        <Link to={routes.entities()} className="link-pen">
           Entities
         </Link>
         <span className="mx-2">/</span>
-        <span className="text-ivory-dim">{name}</span>
+        <span className="text-muted">{name}</span>
       </nav>
 
       <ViewHeader
@@ -51,13 +51,13 @@ export function EntityTimeline({ name }: { name: string }) {
       {loading || !data ? (
         <div className="space-y-5">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+            <Skeleton key={i} className="h-24 w-full rounded-md" />
           ))}
         </div>
       ) : data.length === 0 ? (
         <EmptyHint title="No mentions found" />
       ) : (
-        <ol className="relative ml-3 space-y-6 border-l border-ink-700 pl-6">
+        <ol className="relative ml-3 space-y-6 border-l border-line pl-6">
           {data.map((entry) => (
             <TimelineItem key={entry.pageId} entry={entry} />
           ))}
@@ -72,8 +72,8 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
   return (
     <li className="relative">
       {/* Node on the rail */}
-      <span className="absolute -left-[1.9rem] top-1.5 h-3 w-3 rounded-full border-2 border-ink-950 bg-coral shadow-[0_0_12px_rgba(217,119,87,0.5)]" />
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-coral">
+      <span className="absolute -left-[1.9rem] top-1.5 h-3 w-3 rounded-full border-2 border-paper bg-pen" />
+      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-pen">
         {formatDate(entry.writtenAt)}
       </div>
       <Link
@@ -83,17 +83,17 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
         <ScanThumb
           src={thumb}
           alt={`Page ${entry.pageNumber}`}
-          className="h-24 w-[4.5rem] shrink-0 rounded-lg border border-ink-700"
+          className="h-24 w-[4.5rem] shrink-0 rounded-lg border border-line"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-ivory">
-            {entry.notebookName} <span className="text-ivory-faint">· p.{entry.pageNumber}</span>
+          <p className="text-sm font-medium text-ink">
+            {entry.notebookName} <span className="text-faint">· p.{entry.pageNumber}</span>
           </p>
-          <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-ivory-dim">
+          <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed font-serif text-ink">
             {entry.snippet?.trim() || 'Mentioned on this page.'}
           </p>
         </div>
-        <span className="self-center text-ivory-faint opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="self-center text-faint opacity-0 transition-opacity group-hover:opacity-100">
           →
         </span>
       </Link>

@@ -70,18 +70,18 @@ export function Search() {
     <div className="animate-fade-up">
       {/* Hero search */}
       <div className="mx-auto max-w-3xl text-center">
-        <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-coral">
+        <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-pen">
           Search
         </div>
-        <h1 className="font-display text-3xl text-ivory text-balance sm:text-4xl">
+        <h1 className="font-display text-3xl font-bold text-ink text-balance sm:text-4xl">
           Find anything you wrote
         </h1>
-        <p className="mt-2 text-ivory-dim">
+        <p className="mt-2 text-muted">
           Keyword search across every indexed page of your handwriting.
         </p>
 
         <div className="relative mt-7">
-          <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-ivory-faint">
+          <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-faint">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.2-3.2" strokeLinecap="round" />
@@ -94,7 +94,7 @@ export function Search() {
             type="search"
             placeholder="Try a name, a project, a phrase…"
             aria-label="Search your notes"
-            className="w-full rounded-2xl border border-ink-700 bg-ink-900/80 py-4 pl-14 pr-5 text-lg text-ivory shadow-card placeholder:text-ivory-faint focus:border-coral/60 focus:shadow-glow focus:outline-none"
+            className="w-full rounded-md border border-line bg-sheet py-4 pl-14 pr-5 font-serif text-lg text-ink shadow-card placeholder:text-faint focus:border-pen focus:ring-2 focus:ring-pen/25 focus:outline-none"
           />
         </div>
 
@@ -104,7 +104,7 @@ export function Search() {
             value={notebook}
             onChange={(e) => setNotebook(e.target.value)}
             aria-label="Filter by notebook"
-            className="rounded-lg border border-ink-700 bg-ink-900 px-3 py-1.5 text-sm text-ivory-dim focus:border-coral/60 focus:outline-none"
+            className="rounded-lg border border-line bg-sheet px-3 py-1.5 text-sm text-muted focus:border-pen focus:outline-none"
           >
             <option value="">All notebooks</option>
             {notebooksState.data?.map((nb) => (
@@ -119,7 +119,7 @@ export function Search() {
             onChange={(e) => setType(e.target.value)}
             placeholder="Any page type"
             aria-label="Filter by page type"
-            className="w-36 rounded-lg border border-ink-700 bg-ink-900 px-3 py-1.5 text-sm text-ivory-dim placeholder:text-ivory-faint focus:border-coral/60 focus:outline-none"
+            className="w-36 rounded-lg border border-line bg-sheet px-3 py-1.5 text-sm text-muted placeholder:text-faint focus:border-pen focus:outline-none"
           />
 
           <button
@@ -128,11 +128,11 @@ export function Search() {
             aria-pressed={openLoop}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
               openLoop
-                ? 'border-coral/50 bg-coral/12 text-coral-soft'
-                : 'border-ink-700 bg-ink-900 text-ivory-dim hover:text-ivory'
+                ? 'border-pen/50 bg-pen-soft text-pen'
+                : 'border-line bg-sheet text-muted hover:text-ink'
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${openLoop ? 'bg-coral' : 'bg-ivory-faint'}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${openLoop ? 'bg-pen' : 'bg-faint'}`} />
             Open loops only
           </button>
 
@@ -144,7 +144,7 @@ export function Search() {
                 setType('');
                 setOpenLoop(false);
               }}
-              className="text-sm text-ivory-faint underline-offset-2 hover:text-coral-soft hover:underline"
+              className="text-sm text-faint underline-offset-2 hover:text-pen hover:underline"
             >
               Clear
             </button>
@@ -167,10 +167,10 @@ export function Search() {
           </EmptyHint>
         ) : (
           <>
-            <p className="mb-4 text-sm text-ivory-faint">
+            <p className="mb-4 text-sm text-faint">
               {results.data!.length.toLocaleString()} result{results.data!.length === 1 ? '' : 's'}
               {' for '}
-              <span className="text-ivory-dim">“{debounced}”</span>
+              <span className="text-muted">“{debounced}”</span>
             </p>
             <ul className="space-y-3">
               {results.data!.map((hit) => (
@@ -196,22 +196,22 @@ function ResultCard({ hit }: { hit: SearchResult }) {
       <ScanThumb
         src={thumb}
         alt={`Page ${hit.pageNumber}`}
-        className="h-24 w-[4.5rem] shrink-0 rounded-lg border border-ink-700"
+        className="h-24 w-[4.5rem] shrink-0 rounded-lg border border-line"
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-sm">
-          <span className="truncate font-medium text-ivory">{hit.notebookName}</span>
-          <span className="text-ivory-faint">·</span>
-          <span className="shrink-0 text-ivory-faint">p.{hit.pageNumber}</span>
-          <span className="ml-auto shrink-0 text-xs text-ivory-faint">
+          <span className="truncate font-medium text-ink">{hit.notebookName}</span>
+          <span className="text-faint">·</span>
+          <span className="shrink-0 text-faint">p.{hit.pageNumber}</span>
+          <span className="ml-auto shrink-0 text-xs text-faint">
             {formatRelative(hit.writtenAt)}
           </span>
         </div>
-        <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-ivory-dim">
+        <p className="mt-1.5 line-clamp-3 font-serif text-sm leading-relaxed text-ink">
           {hit.snippet?.trim() || 'Match found on this page.'}
         </p>
       </div>
-      <span className="self-center text-ivory-faint opacity-0 transition-opacity group-hover:opacity-100">
+      <span className="self-center text-faint opacity-0 transition-opacity group-hover:opacity-100">
         →
       </span>
     </Link>
@@ -221,11 +221,11 @@ function ResultCard({ hit }: { hit: SearchResult }) {
 function StartHint() {
   return (
     <div className="flex flex-col items-center py-16 text-center">
-      <div className="mb-4 text-4xl text-ivory-faint opacity-60" aria-hidden>
+      <div className="mb-4 text-4xl text-faint opacity-60" aria-hidden>
         ⌕
       </div>
-      <p className="font-display text-lg text-ivory">Start typing to search</p>
-      <p className="mt-1.5 max-w-sm text-sm text-ivory-dim">
+      <p className="font-display text-lg font-semibold text-ink">Start typing to search</p>
+      <p className="mt-1.5 max-w-sm text-sm text-muted">
         Every word from your scanned pages is indexed. Filter by notebook, page type, or open loops.
       </p>
     </div>

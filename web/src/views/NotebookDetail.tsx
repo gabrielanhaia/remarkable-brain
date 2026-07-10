@@ -51,12 +51,12 @@ export function NotebookDetail({ id }: { id: string }) {
 
 function Breadcrumb() {
   return (
-    <nav className="mb-4 text-sm text-ivory-faint">
-      <Link to={routes.notebooks()} className="link-coral">
+    <nav className="mb-4 text-sm text-faint">
+      <Link to={routes.notebooks()} className="link-pen">
         Notebooks
       </Link>
       <span className="mx-2">/</span>
-      <span className="text-ivory-dim">this notebook</span>
+      <span className="text-muted">this notebook</span>
     </nav>
   );
 }

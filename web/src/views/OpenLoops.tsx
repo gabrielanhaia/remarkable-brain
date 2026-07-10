@@ -20,7 +20,7 @@ export function OpenLoops() {
       {loading || !data ? (
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-xl" />
+            <Skeleton key={i} className="h-16 w-full rounded-md" />
           ))}
         </div>
       ) : data.length === 0 ? (

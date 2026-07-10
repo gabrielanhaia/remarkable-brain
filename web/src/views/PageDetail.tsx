@@ -29,20 +29,20 @@ export function PageDetail({ id }: { id: string }) {
   return (
     <div className="animate-fade-up">
       {/* Breadcrumb */}
-      <nav className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ivory-faint">
-        <Link to={routes.notebooks()} className="link-coral">
+      <nav className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-faint">
+        <Link to={routes.notebooks()} className="link-pen">
           Notebooks
         </Link>
         <span>/</span>
         {data ? (
-          <Link to={routes.notebook(data.notebookId)} className="link-coral">
+          <Link to={routes.notebook(data.notebookId)} className="link-pen">
             {data.notebookName}
           </Link>
         ) : (
           <Skeleton className="h-4 w-24" />
         )}
         <span>/</span>
-        <span className="text-ivory-dim">Page {data?.pageNumber ?? '…'}</span>
+        <span className="text-muted">Page {data?.pageNumber ?? '…'}</span>
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -60,23 +60,23 @@ export function PageDetail({ id }: { id: string }) {
               <>
                 {data?.openLoop && <OpenLoopBadge />}
                 <PageTypeBadge type={data?.pageType} />
-                <span className="text-sm text-ivory-faint">{formatDate(data?.writtenAt)}</span>
+                <span className="text-sm text-faint">{formatDate(data?.writtenAt)}</span>
               </>
             )}
           </div>
 
-          <h1 className="font-display text-2xl text-ivory sm:text-3xl">
+          <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">
             {data ? `${data.notebookName} · Page ${data.pageNumber}` : 'Loading page…'}
           </h1>
 
           {/* Open loop callout */}
           {data?.openLoop && (
-            <div className="mt-5 rounded-xl border border-coral/30 bg-coral/8 p-4">
-              <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-coral">
-                <span className="h-1.5 w-1.5 rounded-full bg-coral" />
+            <div className="mt-5 rounded-md border border-pen/30 bg-pen-soft p-4">
+              <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pen">
+                <span className="h-1.5 w-1.5 rounded-full bg-pen" />
                 Open loop
               </div>
-              <p className="text-sm text-ivory-dim">
+              <p className="text-sm text-muted">
                 {data.openLoopDescription?.trim() || 'This page was flagged as an unfinished thread.'}
               </p>
             </div>
@@ -84,7 +84,7 @@ export function PageDetail({ id }: { id: string }) {
 
           {/* Transcribed text */}
           <section className="mt-6">
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-ivory-faint">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-faint">
               Transcription
             </h2>
             {loading ? (
@@ -94,11 +94,11 @@ export function PageDetail({ id }: { id: string }) {
                 ))}
               </div>
             ) : data?.extractedText?.trim() ? (
-              <div className="whitespace-pre-wrap rounded-xl border border-ink-800 bg-ink-900/50 p-5 text-[15px] leading-relaxed text-ivory-dim">
+              <div className="whitespace-pre-wrap rounded-md border border-line bg-sheet p-5 font-serif text-[15px] leading-relaxed text-ink">
                 {data.extractedText}
               </div>
             ) : (
-              <p className="rounded-xl border border-dashed border-ink-700 bg-ink-900/30 p-5 text-sm text-ivory-faint">
+              <p className="rounded-md border border-dashed border-line bg-sheet p-5 text-sm text-faint">
                 No text was transcribed for this page.
               </p>
             )}
@@ -106,7 +106,7 @@ export function PageDetail({ id }: { id: string }) {
 
           {/* Entities */}
           <section className="mt-6">
-            <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-ivory-faint">
+            <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-faint">
               Mentioned
             </h2>
             {loading ? (
@@ -121,10 +121,10 @@ export function PageDetail({ id }: { id: string }) {
                   <Link
                     key={`${ent.type}:${ent.name}`}
                     to={routes.entity(ent.name)}
-                    className="group inline-flex items-center gap-1.5 rounded-full border border-ink-700 bg-ink-850 px-3 py-1 text-sm text-ivory-dim transition-colors hover:border-coral/40 hover:text-coral-soft"
+                    className="group inline-flex items-center gap-1.5 rounded-full border border-line bg-sheet px-3 py-1 text-sm text-muted transition-colors hover:border-pen/40 hover:text-pen"
                     title={`${ent.type} — view timeline`}
                   >
-                    <span className="text-coral opacity-80" aria-hidden>
+                    <span className="text-pen opacity-80" aria-hidden>
                       {entityGlyph(ent.type)}
                     </span>
                     {ent.name}
@@ -132,7 +132,7 @@ export function PageDetail({ id }: { id: string }) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-ivory-faint">No linked entities.</p>
+              <p className="text-sm text-faint">No linked entities.</p>
             )}
           </section>
         </div>
@@ -154,11 +154,11 @@ function ScanViewer({
   const [zoom, setZoom] = useState(false);
 
   if (loading) {
-    return <Skeleton className="aspect-[3/4] w-full rounded-xl" />;
+    return <Skeleton className="aspect-[3/4] w-full rounded-md" />;
   }
   if (!imageUrl) {
     return (
-      <div className="flex aspect-[3/4] w-full flex-col items-center justify-center rounded-xl border border-dashed border-ink-700 bg-ink-900/40 text-ivory-faint">
+      <div className="flex aspect-[3/4] w-full flex-col items-center justify-center rounded-md border border-dashed border-line bg-sheet text-faint">
         <span className="text-4xl opacity-50">✎</span>
         <span className="mt-2 text-sm">No scan available</span>
       </div>
@@ -170,7 +170,7 @@ function ScanViewer({
       <button
         type="button"
         onClick={() => setZoom(true)}
-        className="scan-frame block w-full overflow-hidden rounded-xl p-2 transition-transform hover:scale-[1.005] focus:outline-none focus-visible:ring-2 focus-visible:ring-coral"
+        className="scan-sheet block w-full overflow-hidden rounded-md p-2 transition-transform hover:scale-[1.005] focus:outline-none focus-visible:ring-2 focus-visible:ring-pen"
         aria-label="Zoom scanned page"
       >
         <img
@@ -182,7 +182,7 @@ function ScanViewer({
 
       {zoom && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/90 p-4 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in"
           onClick={() => setZoom(false)}
           role="dialog"
           aria-modal="true"
@@ -190,10 +190,10 @@ function ScanViewer({
           <img
             src={imageUrl}
             alt={`Scanned page ${pageNumber ?? ''} (zoomed)`}
-            className="max-h-full max-w-full rounded-lg scan-frame p-2"
+            className="max-h-full max-w-full rounded-lg scan-sheet p-2"
           />
           <button
-            className="absolute right-5 top-5 rounded-full border border-ink-600 bg-ink-900/80 px-3 py-1.5 text-sm text-ivory-dim hover:text-ivory"
+            className="absolute right-5 top-5 rounded-full border border-line bg-sheet px-3 py-1.5 text-sm text-muted hover:text-ink"
             onClick={() => setZoom(false)}
           >
             Close ✕

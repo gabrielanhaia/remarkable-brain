@@ -68,33 +68,33 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="min-h-screen lg:grid lg:grid-cols-[16rem_1fr]">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 transform border-r border-ink-800 bg-ink-900/80 backdrop-blur-xl transition-transform duration-300 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 transform border-r border-line bg-paper transition-transform duration-300 lg:static lg:translate-x-0 ${
           navOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex h-full flex-col">
           <Link to={routes.dashboard()} className="flex items-center gap-3 px-6 pb-6 pt-7">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-coral to-coral-deep font-display text-lg font-bold text-ink-950 shadow-glow">
-              rm
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-pen font-display text-lg font-semibold text-paper">
+              r
             </span>
             <span className="flex flex-col leading-none">
-              <span className="font-display text-lg text-ivory">rm-brain</span>
-              <span className="mt-0.5 text-[11px] uppercase tracking-[0.18em] text-ivory-faint">
-                second brain
+              <span className="font-display text-lg font-semibold text-ink">rm-brain</span>
+              <span className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-faint">
+                Second brain
               </span>
             </span>
           </Link>
 
-          <nav className="flex-1 space-y-1 px-3">
+          <nav className="flex-1 space-y-0.5 px-3">
             {NAV.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
                 matchPrefix
-                className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-ink-800 hover:text-ivory"
-                activeClassName="!bg-coral/12 !text-coral-soft"
+                className="group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-sheet hover:text-ink"
+                activeClassName="!text-ink !shadow-[inset_2px_0_0_rgb(var(--pen))]"
               >
-                <span className="flex h-5 w-5 items-center justify-center text-current opacity-90">
+                <span className="flex h-5 w-5 items-center justify-center text-current opacity-80">
                   {item.glyph}
                 </span>
                 {item.label}
@@ -102,9 +102,9 @@ export function Layout({ children }: { children: ReactNode }) {
             ))}
           </nav>
 
-          <div className="border-t border-ink-800 px-6 py-5 text-[11px] leading-relaxed text-ivory-faint">
+          <div className="border-t border-line px-6 py-5 text-[11px] leading-relaxed text-faint">
             <p className="flex items-center gap-1.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-good" />
               Local · read-only
             </p>
             <p className="mt-1.5">
@@ -119,23 +119,23 @@ export function Layout({ children }: { children: ReactNode }) {
         <button
           aria-label="Close navigation"
           onClick={() => setNavOpen(false)}
-          className="fixed inset-0 z-30 bg-ink-950/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-ink/30 backdrop-blur-sm lg:hidden"
         />
       )}
 
       {/* Main column */}
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-ink-800 bg-ink-950/70 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-paper/85 px-4 py-3 backdrop-blur-xl sm:px-6">
           <button
             onClick={() => setNavOpen(true)}
             aria-label="Open navigation"
-            className="rounded-lg border border-ink-700 p-2 text-ivory-dim hover:text-ivory lg:hidden"
+            className="rounded-md border border-line p-2 text-muted hover:text-ink lg:hidden"
           >
             <GlyphMenu />
           </button>
 
           <form onSubmit={submitQuick} className="relative flex-1 sm:max-w-md">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ivory-faint">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint">
               <GlyphSearch />
             </span>
             <input
@@ -145,14 +145,14 @@ export function Layout({ children }: { children: ReactNode }) {
               type="search"
               placeholder="Search your handwriting…"
               aria-label="Search notes"
-              className="w-full rounded-lg border border-ink-700 bg-ink-900 py-2 pl-9 pr-10 text-sm text-ivory placeholder:text-ivory-faint transition-colors focus:border-coral/60 focus:outline-none focus:ring-1 focus:ring-coral/40"
+              className="w-full rounded-md border border-line bg-sheet py-2 pl-9 pr-10 font-serif text-sm text-ink placeholder:font-sans placeholder:text-faint transition-colors focus:border-pen focus:outline-none focus:ring-2 focus:ring-pen/25"
             />
             <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:block">
               <Kbd>/</Kbd>
             </span>
           </form>
 
-          <div className="ml-auto hidden text-xs text-ivory-faint sm:block">
+          <div className="ml-auto hidden text-xs text-faint sm:block">
             Asking questions? Use Claude Desktop.
           </div>
         </header>
@@ -161,7 +161,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {children}
         </main>
 
-        <footer className="border-t border-ink-800 px-6 py-5 text-center text-xs text-ivory-faint">
+        <footer className="border-t border-line px-6 py-5 text-center text-xs text-faint">
           rm-brain · a private, local view of your reMarkable notes
         </footer>
       </div>
@@ -171,7 +171,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded border border-ink-600 bg-ink-800 px-1.5 py-0.5 font-mono text-[11px] text-ivory-dim">
+    <kbd className="rounded border border-line bg-sheet px-1.5 py-0.5 font-mono text-[11px] text-muted">
       {children}
     </kbd>
   );

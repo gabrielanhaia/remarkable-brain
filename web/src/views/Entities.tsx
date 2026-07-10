@@ -36,7 +36,7 @@ export function Entities() {
       {loading || !data ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 9 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            <Skeleton key={i} className="h-20 w-full rounded-md" />
           ))}
         </div>
       ) : data.length === 0 ? (
@@ -85,8 +85,8 @@ function TypeChip({
       aria-pressed={active}
       className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
         active
-          ? 'border-coral/50 bg-coral/12 text-coral-soft'
-          : 'border-ink-700 bg-ink-900 text-ivory-dim hover:text-ivory'
+          ? 'border-pen/50 bg-pen-soft text-pen'
+          : 'border-line bg-sheet text-muted hover:text-ink'
       }`}
     >
       {glyph && (
@@ -105,16 +105,16 @@ function EntityCard({ entity }: { entity: EntitySummary }) {
       to={routes.entity(entity.name)}
       className="surface surface-hover group flex items-center gap-3.5 p-4"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-ink-700 bg-ink-850 text-coral">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-sheet text-pen">
         {entityGlyph(entity.type)}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-ivory">{entity.name}</p>
-        <p className="text-xs text-ivory-faint">
+        <p className="truncate font-medium text-ink">{entity.name}</p>
+        <p className="text-xs text-faint">
           {formatPageType(entity.type) ?? entity.type} · {plural(entity.pageCount, 'page')}
         </p>
       </div>
-      <span className="text-ivory-faint opacity-0 transition-opacity group-hover:opacity-100">→</span>
+      <span className="text-faint opacity-0 transition-opacity group-hover:opacity-100">→</span>
     </Link>
   );
 }

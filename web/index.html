@@ -3,8 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark light" />
-    <title>rm-brain</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>rm-brain — your handwriting, indexed</title>
+    <script>
+      // Follow the OS light/dark preference. Tailwind darkMode keys off [data-theme="dark"];
+      // stamp it before paint (no flash) and keep it in sync if the OS preference changes.
+      (function () {
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
+        var apply = function (dark) {
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        };
+        apply(mq.matches);
+        mq.addEventListener('change', function (e) {
+          apply(e.matches);
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

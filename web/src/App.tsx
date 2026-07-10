@@ -40,12 +40,12 @@ function renderRoute(path: string) {
 function NotFound() {
   return (
     <div className="flex flex-col items-center py-24 text-center">
-      <div className="font-display text-6xl text-coral">404</div>
-      <p className="mt-3 font-display text-xl text-ivory">This page isn’t here</p>
-      <p className="mt-1.5 text-ivory-dim">The link may be stale or mistyped.</p>
+      <div className="font-display text-6xl font-bold text-pen">404</div>
+      <p className="mt-3 font-display text-xl font-semibold text-ink">This page isn’t here</p>
+      <p className="mt-1.5 text-muted">The link may be stale or mistyped.</p>
       <Link
         to={routes.dashboard()}
-        className="mt-6 rounded-lg border border-ink-600 bg-ink-850 px-4 py-2 text-sm font-medium text-ivory transition-colors hover:border-coral/50 hover:text-coral-soft"
+        className="mt-6 rounded-md border border-line bg-sheet px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-pen/50 hover:text-pen"
       >
         Back to dashboard
       </Link>
