@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
   loadConfig,
   isHardExcluded,
+  isPathHardExcluded,
   isUnderFolder,
   normalizeFolder,
   HARD_EXCLUDE_PATTERNS,
@@ -51,5 +52,18 @@ describe('config', () => {
     expect(isUnderFolder('/Brain/sub/Deep', '/Brain')).toBe(true); // recursive
     expect(isUnderFolder('/Other/Acme', '/Brain')).toBe(false);
     expect(isUnderFolder('/Brainstorming/x', '/Brain')).toBe(false); // not a prefix segment
+  });
+
+  test('isPathHardExcluded excludes on any folder segment, not just the doc name', () => {
+    // an intermediate folder triggers exclusion (the gap this closes)
+    expect(isPathHardExcluded('/Brain/private/plan', '/Brain')).toBe(true);
+    expect(isPathHardExcluded('/Brain/.archive/note', '/Brain')).toBe(true);
+    expect(isPathHardExcluded('/Brain/work/noindex-scratch', '/Brain')).toBe(true);
+    // the doc name itself still triggers it
+    expect(isPathHardExcluded('/Brain/My Private Journal', '/Brain')).toBe(true);
+    // clean nested paths are indexed
+    expect(isPathHardExcluded('/Brain/Work/Meeting Notes', '/Brain')).toBe(false);
+    // base folder is matched case-insensitively and not itself scanned for patterns
+    expect(isPathHardExcluded('/brain/Private/x', 'Brain')).toBe(true);
   });
 });

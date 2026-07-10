@@ -70,3 +70,19 @@ export function isUnderFolder(remotePath: string, folder: string): boolean {
   if (f === '') return true; // folder '/' means "everything" (not recommended, but valid)
   return remotePath.toLowerCase().startsWith(`${f}/`);
 }
+
+/**
+ * Hard-exclude by full path, not just the document name: a document is skipped when its own name
+ * OR any intermediate folder (below `brainFolder`) matches a hard-exclude pattern. This closes the
+ * subfolder gap where `/Brain/private/plan` would otherwise be indexed because only the leaf name
+ * ("plan") was tested — the `private` folder should exclude everything beneath it.
+ */
+export function isPathHardExcluded(remotePath: string, brainFolder: string): boolean {
+  const f = normalizeFolder(brainFolder).toLowerCase();
+  const lower = remotePath.toLowerCase();
+  const rel = f !== '' && lower.startsWith(`${f}/`) ? remotePath.slice(f.length + 1) : remotePath;
+  return rel
+    .split('/')
+    .filter(Boolean)
+    .some((seg) => isHardExcluded(seg));
+}

@@ -86,6 +86,27 @@ test('excluded notebooks are hidden from search and tracked by id', () => {
   expect(repo.listExcludedIds()).toEqual(['n1']);
 });
 
+test('linkEntities replaces a page\'s links instead of accumulating them', () => {
+  // p1 starts linked to Acme (from beforeEach). Re-extraction now finds Beta instead.
+  repo.linkEntities('p1', [{ name: 'Beta', type: 'company' }]);
+  expect(repo.getPage('p1')!.entities).toEqual([{ name: 'Beta', type: 'company' }]);
+  // Acme must no longer point at p1 (only p2 still mentions it).
+  expect(repo.getEntityTimeline('Acme').map((x) => x.pageId)).toEqual(['p2']);
+});
+
+test('prunePagesNotIn deletes pages absent from the keep set and returns their images', () => {
+  const removed = repo.prunePagesNotIn('n1', [1]); // keep page 1, drop page 2
+  expect(removed).toEqual(['/img/p2.png']);
+  expect(repo.listNotebookPages('n1').map((p) => p.pageNumber)).toEqual([1]);
+  expect(repo.searchNotes('Follow').length).toBe(0); // p2's text gone from FTS too
+});
+
+test('prunePagesNotIn with an empty keep set deletes every page', () => {
+  const removed = repo.prunePagesNotIn('n1', []);
+  expect(removed.sort()).toEqual(['/img/p1.png', '/img/p2.png']);
+  expect(repo.listNotebookPages('n1').length).toBe(0);
+});
+
 test('purgeNotebook returns image paths and removes rows', () => {
   const imgs = repo.purgeNotebook('n1');
   expect(imgs.sort()).toEqual(['/img/p1.png', '/img/p2.png']);

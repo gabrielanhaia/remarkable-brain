@@ -137,10 +137,14 @@ export class Repo {
       'INSERT INTO entities (name, type) VALUES (?, ?) ON CONFLICT(name, type) DO NOTHING'
     );
     const getId = this.db.prepare('SELECT id FROM entities WHERE name = ? AND type = ?');
+    const clear = this.db.prepare('DELETE FROM page_entities WHERE page_id = ?');
     const link = this.db.prepare(
       'INSERT INTO page_entities (page_id, entity_id) VALUES (?, ?) ON CONFLICT DO NOTHING'
     );
     const tx = this.db.transaction((es: { name: string; type: string }[]) => {
+      // Re-indexing a page must REPLACE its links, not accumulate them: clear first so an entity
+      // dropped from a fresh extraction stops appearing on this page (and in its timeline).
+      clear.run(pageId);
       for (const e of es) {
         const name = e.name.trim();
         if (!name) continue;
@@ -150,6 +154,25 @@ export class Repo {
       }
     });
     tx(entities);
+  }
+
+  /**
+   * Delete pages of a notebook whose page_number is not in `keep` — i.e. pages removed inside the
+   * notebook since the last render. Returns their image paths so the caller can unlink the files.
+   * An empty `keep` deletes every page of the notebook, so callers MUST guard against an empty
+   * render (a failed render must never be mistaken for "the notebook now has no pages").
+   */
+  prunePagesNotIn(notebookId: string, keep: number[]): string[] {
+    const notIn = keep.length ? `AND page_number NOT IN (${keep.map(() => '?').join(',')})` : '';
+    const where = `notebook_id = ? ${notIn}`;
+    const params = [notebookId, ...keep];
+    const imgs = (
+      this.db
+        .prepare(`SELECT image_path FROM pages WHERE ${where} AND image_path IS NOT NULL`)
+        .all(...params) as { image_path: string }[]
+    ).map((r) => r.image_path);
+    this.db.prepare(`DELETE FROM pages WHERE ${where}`).run(...params);
+    return imgs;
   }
 
   searchNotes(query: string, limit = 20): SearchHit[] {

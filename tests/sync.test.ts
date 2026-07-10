@@ -145,6 +145,45 @@ test('runSync prunes notebooks removed from the folder (pages + images gone)', a
   expect(repo.searchNotes('gone').length).toBe(0);
 });
 
+test('runSync prunes pages deleted inside a notebook (rows + images gone)', async () => {
+  const db = new Database(':memory:');
+  migrate(db);
+  const repo = new Repo(db);
+
+  const rmapi = { listFolderDocs: vi.fn(), downloadDoc: fakeDownload() };
+  rmapi.listFolderDocs
+    .mockResolvedValueOnce([doc({ id: 'a', name: 'Notes', version: '0', modified: 't1' })])
+    .mockResolvedValueOnce([doc({ id: 'a', name: 'Notes', version: '0', modified: 't2' })]);
+
+  let call = 0;
+  const renderer = {
+    renderDocToPngs: vi.fn(async (_a: string, outDir: string, docId: string) => {
+      call++;
+      const p1 = join(outDir, `${docId}-p1.png`);
+      writeFileSync(p1, 'page-one-stable');
+      const pages = [{ pageNumber: 1, path: p1 }];
+      if (call === 1) {
+        // first render has a second page; the second render drops it (deleted on device)
+        const p2 = join(outDir, `${docId}-p2.png`);
+        writeFileSync(p2, 'page-two-doomed');
+        pages.push({ pageNumber: 2, path: p2 });
+      }
+      return pages;
+    }),
+  };
+  const deps = baseDeps({ repo, rmapi, renderer, extract: okExtract() });
+
+  await runSync(deps);
+  expect(repo.listNotebooks().find((n) => n.id === 'a')?.pageCount).toBe(2);
+  const p2Image = join(deps.imagesDir, 'a', 'page-2.png');
+  expect(existsSync(p2Image)).toBe(true);
+
+  const s2 = await runSync(deps);
+  expect(s2.prunedPages).toBe(1);
+  expect(repo.listNotebooks().find((n) => n.id === 'a')?.pageCount).toBe(1);
+  expect(existsSync(p2Image)).toBe(false); // image unlinked
+});
+
 test('runSync does NOT prune user-excluded markers', async () => {
   const db = new Database(':memory:');
   migrate(db);

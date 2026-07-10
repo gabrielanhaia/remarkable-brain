@@ -135,8 +135,8 @@ async function doSync(cfg: Config, repo: Repo): Promise<SyncSummary> {
   spin.stop('Sync complete');
   p.log.message(
     `Docs synced: ${summary.docsSynced}, pages extracted: ${summary.pagesExtracted}, ` +
-      `pruned: ${summary.pruned.length}, excluded: ${summary.skippedExcluded.length}, ` +
-      `errors: ${summary.errors.length}`
+      `pages pruned: ${summary.prunedPages}, notebooks pruned: ${summary.pruned.length}, ` +
+      `excluded: ${summary.skippedExcluded.length}, errors: ${summary.errors.length}`
   );
   for (const name of summary.pruned) p.log.message(pc.dim(`  removed: ${name}`));
   for (const e of summary.errors)

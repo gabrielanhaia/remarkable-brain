@@ -52,3 +52,13 @@ export function recordPage(
 export function forgetDoc(m: Manifest, docId: string): void {
   delete m.docs[docId];
 }
+
+/** Drop page hashes no longer present in the document (used when pages are deleted in-place). */
+export function pruneDocPages(m: Manifest, docId: string, keepPageNumbers: number[]): void {
+  const doc = m.docs[docId];
+  if (!doc) return;
+  const keep = new Set(keepPageNumbers);
+  for (const key of Object.keys(doc.pages)) {
+    if (!keep.has(Number(key))) delete doc.pages[Number(key)];
+  }
+}

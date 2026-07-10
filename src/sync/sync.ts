@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { isHardExcluded } from '../config.js';
+import { isPathHardExcluded } from '../config.js';
 import type { Repo } from '../storage/repo.js';
 import type { Rmapi } from './rmapi.js';
 import type { Renderer } from './render.js';
@@ -13,6 +13,7 @@ import {
   pageChanged,
   recordPage,
   forgetDoc,
+  pruneDocPages,
 } from './manifest.js';
 
 export interface SyncDeps {
@@ -30,6 +31,7 @@ export interface SyncSummary {
   docsConsidered: number;
   docsSynced: number;
   pagesExtracted: number;
+  prunedPages: number;
   skippedExcluded: string[];
   pruned: string[];
   errors: { docId: string; page?: number; message: string }[];
@@ -43,6 +45,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
     docsConsidered: 0,
     docsSynced: 0,
     pagesExtracted: 0,
+    prunedPages: 0,
     skippedExcluded: [],
     pruned: [],
     errors: [],
@@ -54,8 +57,9 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
 
   for (const doc of docs) {
     summary.docsConsidered++;
-    // Hard exclusion (name convention) and prior user exclusion both win, even inside the folder.
-    if (isHardExcluded(doc.name) || excludedIds.has(doc.id)) {
+    // Hard exclusion (name/folder convention) and prior user exclusion both win, even inside the
+    // folder — a document under a `private`/`noindex`/dotfolder subfolder is skipped too.
+    if (isPathHardExcluded(doc.path, deps.brainFolder) || excludedIds.has(doc.id)) {
       summary.skippedExcluded.push(doc.name);
       continue;
     }
@@ -108,6 +112,16 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
             message: String((err as Error).message),
           });
         }
+      }
+      // Pages deleted inside the notebook since the last render: drop their rows, images and
+      // manifest entries. Guard on a non-empty render so a renderer that yields nothing (a bug or
+      // transient failure) can never be mistaken for "the notebook is now empty" and wipe it.
+      if (pages.length > 0) {
+        const keepPages = pages.map((pg) => pg.pageNumber);
+        const removedImgs = deps.repo.prunePagesNotIn(doc.id, keepPages);
+        for (const img of removedImgs) rmSync(img, { force: true });
+        pruneDocPages(manifest, doc.id, keepPages);
+        summary.prunedPages += removedImgs.length;
       }
       summary.docsSynced++;
       saveManifest(deps.manifestPath, manifest); // persist progress per doc
