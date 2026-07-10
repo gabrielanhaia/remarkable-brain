@@ -25,9 +25,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   self-hosted Newsreader/Geist typefaces (SIL OFL), a token layer that switches with the OS
   light/dark preference, and scans that always render as light paper with dark ink so handwriting
   never inverts into invisibility.
-- **Typo-tolerant, partial-word search** — every query token matches as a prefix (`portug` →
-  Portugal), and if a query finds nothing a fuzzy fallback expands each token to indexed
-  vocabulary terms within a small edit distance (`portgual` → Portugal). Works in the web app and
+- **Typo-tolerant, partial-word search** — every query token matches as a prefix (`meet` →
+  meeting), and if a query finds nothing a fuzzy fallback expands each token to indexed
+  vocabulary terms within a small edit distance (`meetign` → meeting). Works in the web app and
   the `search` CLI.
 - **Subfolder support** — each notebook records its reMarkable subfolder; the Notebooks view
   groups notebooks by folder.

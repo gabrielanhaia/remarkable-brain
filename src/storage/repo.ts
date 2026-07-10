@@ -207,9 +207,9 @@ export class Repo {
 
   /**
    * Keyword search with graceful widening so partial words and typos still find pages:
-   *   1. prefix-AND — every token as a prefix (`"portug"*` finds "Portugal", stems match);
+   *   1. prefix-AND — every token as a prefix (`"meet"*` finds "meeting", stems match);
    *   2. fuzzy fallback — only if step 1 finds nothing, each token is expanded to the indexed
-   *      vocabulary terms within a small edit distance (so "portgual" still finds "Portugal").
+   *      vocabulary terms within a small edit distance (so "meetign" still finds "meeting").
    */
   searchNotes(query: string, limit = 20): SearchHit[] {
     const tokens = queryTokens(query);
