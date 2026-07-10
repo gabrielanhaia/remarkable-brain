@@ -131,6 +131,28 @@ Once a notebook is indexed and Claude Desktop is connected, just talk to Claude:
 - *"How has my thinking on the onboarding flow evolved?"* (entity timeline)
 - *"Show me the page where I sketched the architecture."*
 
+### Web interface
+
+Prefer to *see* your notes? rm-brain ships a local-first, **read-only** web app — an alternative
+way to **browse and search** your indexed notebooks and view the actual scanned handwriting in
+the browser. It complements the conversation, it doesn't replace it: **asking questions still
+happens in Claude Desktop** (over MCP); the web app is for seeing and searching.
+
+```bash
+rm-brain web                       # builds nothing — opens http://localhost:4123 in your browser
+rm-brain web --port 8080           # pick a different port
+rm-brain web --host 127.0.0.1      # bind address (localhost only, by design)
+rm-brain web --no-open             # don't auto-open the browser
+```
+
+It serves the Dashboard (counts + recent open loops and pages), full-text **Search** with
+filters (notebook, page type, open-loop only), a Notebooks grid, per-page detail (scanned image
+side-by-side with the transcription), Open Loops, and Entity timelines.
+
+Same guarantees as the rest of rm-brain: it binds `127.0.0.1` only, exposes GET endpoints only,
+has no auth surface, and makes no outbound network calls. The **frontend ships prebuilt** (in
+`web/dist`), so there's no build step for end users — just run `rm-brain web`.
+
 ### CLI reference
 
 | Command | What it does |
@@ -146,6 +168,7 @@ Once a notebook is indexed and Claude Desktop is connected, just talk to Claude:
 | `rm-brain purge` | Delete the entire local index |
 | `rm-brain doctor` | Check dependencies |
 | `rm-brain mcp` | Start the MCP server (Claude Desktop runs this) |
+| `rm-brain web` | Open the local read-only web app to browse & search your notes (`--port` / `--host` / `--no-open`) |
 
 ### Configuration
 
@@ -213,9 +236,11 @@ everything.
 
 ## Roadmap / not in v1 (on purpose)
 
-No vector search / embeddings (FTS5 keyword search only), no notifications or daily digests, no
-summary dashboard, no web UI. This stays a tool you reach for, not one that reaches for you.
-Ideas and PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
+No vector search / embeddings (FTS5 keyword search only — the web app's search is built behind a
+`SearchProvider` seam so a semantic provider can drop in later), no notifications or daily
+digests. The web app is a read-only way to *see and search* your notes — asking questions stays
+in Claude Desktop, so this remains a tool you reach for, not one that reaches for you. Ideas and
+PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Contributing
 

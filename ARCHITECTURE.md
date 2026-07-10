@@ -55,6 +55,7 @@ isolation.
 | `extraction/` | **The only module that calls an external API automatically** |
 | `storage/` | SQLite schema (FTS5) + a typed repository |
 | `mcp/` | MCP server exposing read-only query tools to Claude Desktop |
+| `web/` | Local read-only HTTP server + JSON API over the `Repo`, serving a prebuilt React SPA |
 | `cli.ts` | The `rm-brain` command surface + setup wizard |
 
 The **extraction module is deliberately the sole automatic external caller** and the only holder
@@ -97,6 +98,23 @@ Per-item resilience: network/rmapi failures and Claude API errors are retried, t
 doc/page is skipped and logged — one bad page never aborts a sync. Progress is committed per
 document so an interrupted run resumes. Structured extraction output is validated with zod and
 retried once before the page is skipped.
+
+## Web interface
+
+`rm-brain web` starts a small Node `http` server (no framework) bound to `127.0.0.1`, serving
+three things: a read-only JSON API under `/api/*`, the scanned page PNGs under `/images/*`
+(paths validated to stay inside `RM_BRAIN_HOME/images`), and the prebuilt React SPA for
+everything else. The API is a thin layer over the same `Repo` read methods the MCP tools use —
+no duplicated data logic and, like MCP, strictly read-only (GET only, no mutations, no auth, no
+outbound network).
+
+Search sits behind a `SearchProvider` seam: v1 ships `FtsSearchProvider` (wrapping
+`repo.searchNotes` plus notebook/type/open-loop filters), and a future
+`SemanticSearchProvider` (local vector embeddings) can drop in without touching the HTTP API or
+the SPA. The frontend is a React + Vite + Tailwind app in `web/`, built to `web/dist` at build
+time and shipped in the npm package, so end users get a real app with zero build step. See
+[the web interface design spec](./docs/superpowers/specs/2026-07-10-web-interface-design.md) for
+the full design.
 
 ## Design docs
 

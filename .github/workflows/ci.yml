@@ -35,5 +35,8 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build
-        run: npm run build
+      - name: Build web bundle
+        run: npm run build:web
+
+      - name: Build CLI
+        run: npm run build:cli

@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Web interface** (`rm-brain web`) — a local-first, read-only web app to **browse and search**
+  your indexed notes and view the actual scanned handwriting in the browser. It complements the
+  Claude Desktop experience (asking questions still happens there over MCP); the web app is for
+  seeing and searching. A small Node `http` server binds `127.0.0.1` only and serves a read-only
+  JSON API over the existing `Repo`, the scanned page images (path-validated), and a **prebuilt**
+  React + Vite + Tailwind SPA — so end users get a real app with zero build step. Views: Dashboard,
+  Search (with notebook/type/open-loop filters), Notebooks, Page detail, Open Loops, and Entity
+  timelines. Search sits behind a `SearchProvider` seam (v1 `FtsSearchProvider`) so a future
+  semantic/vector provider can drop in without changing the API or the frontend. Flags:
+  `--port` / `--host` / `--no-open`. No auth, no telemetry, no outbound network from the web layer.
+
 ## [0.1.0] - 2026-07-09
 
 Initial release.
