@@ -1,14 +1,23 @@
 {
   "name": "rm-brain",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local-first second brain for reMarkable notebooks, searched through Claude Desktop",
   "license": "MIT",
   "author": "Gabriel Anhaia",
   "type": "module",
-  "bin": { "rm-brain": "dist/cli.js" },
+  "bin": {
+    "rm-brain": "dist/cli.js"
+  },
   "exports": "./dist/index.js",
-  "files": ["dist", "web/dist", "README.md", "LICENSE"],
-  "engines": { "node": ">=20" },
+  "files": [
+    "dist",
+    "web/dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "keywords": [
     "remarkable",
     "second-brain",

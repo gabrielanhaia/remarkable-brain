@@ -1,7 +1,7 @@
 {
   "name": "rm-brain-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Local read-only web UI for rm-brain (built into web/dist and served by `rm-brain web`).",
   "scripts": {

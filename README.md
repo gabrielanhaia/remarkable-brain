@@ -56,12 +56,13 @@ flowchart TD
     CLI["⌨️ CLI<br/>sync · search · backup"] --> F
     F <--> G["🔌 MCP server"]
     G <--> H["💬 Claude Desktop"]
+    F --> W["🖥️ Web app<br/>browse · search (localhost)"]
 
     classDef cloud fill:#e8f0fe,stroke:#4285f4,color:#1a1a1a;
     classDef local fill:#e9f7ef,stroke:#27ae60,color:#1a1a1a;
     classDef ai fill:#f3e8fd,stroke:#8e44ad,color:#1a1a1a;
     class A cloud;
-    class B,C,D,F,CLI local;
+    class B,C,D,F,CLI,W local;
     class E,G,H ai;
 ```
 
@@ -80,7 +81,8 @@ rendered with [`rmc`](https://github.com/ricklupton/rmc) + `rsvg-convert`. See
 - **The folder is the source of truth.** Remove a notebook from it and the next `sync` prunes
   it from your local index — pages and images included.
 - **Hard exclusion always wins.** A notebook whose name matches `/^\./`, `/private/i`, or
-  `/noindex/i` is skipped entirely, even inside the Brain folder.
+  `/noindex/i` is skipped entirely, even inside the Brain folder — and so is anything filed under
+  a **subfolder** with such a name (e.g. `Brain/private/…`).
 - **Read-only cloud access.** rm-brain only ever *reads* from reMarkable (`list` / `stat` /
   `get`); it never uploads or modifies anything.
 - **No telemetry.** rm-brain phones home to nobody. See [SECURITY.md](./SECURITY.md).
@@ -135,8 +137,10 @@ Once a notebook is indexed and Claude Desktop is connected, just talk to Claude:
 
 Prefer to *see* your notes? rm-brain ships a local-first, **read-only** web app — an alternative
 way to **browse and search** your indexed notebooks and view the actual scanned handwriting in
-the browser. It complements the conversation, it doesn't replace it: **asking questions still
-happens in Claude Desktop** (over MCP); the web app is for seeing and searching.
+the browser. Its design is a quiet, fountain-pen-ink-on-fine-paper reading room that follows your
+system light/dark theme (scans always stay light paper, so handwriting never inverts). It
+complements the conversation, it doesn't replace it: **asking questions still happens in Claude
+Desktop** (over MCP); the web app is for seeing and searching.
 
 ![rm-brain web — Dashboard](docs/screenshots/dashboard.png)
 
@@ -154,8 +158,9 @@ rm-brain web --host 127.0.0.1      # bind address (localhost only, by design)
 rm-brain web --no-open             # don't auto-open the browser
 ```
 
-It serves the Dashboard (counts + recent open loops and pages), full-text **Search** with
-filters (notebook, page type, open-loop only), a Notebooks grid, per-page detail (scanned image
+It serves the Dashboard (counts + recent open loops and pages), **typo-tolerant search** —
+partial words and small misspellings still match — with filters (notebook, page type, open-loop
+only), a Notebooks grid **grouped by reMarkable subfolder**, per-page detail (scanned image
 side-by-side with the transcription), Open Loops, and Entity timelines.
 
 Same guarantees as the rest of rm-brain: it binds `127.0.0.1` only, exposes GET endpoints only,
@@ -245,9 +250,9 @@ everything.
 
 ## Roadmap / not in v1 (on purpose)
 
-No vector search / embeddings (FTS5 keyword search only — the web app's search is built behind a
-`SearchProvider` seam so a semantic provider can drop in later), no notifications or daily
-digests. The web app is a read-only way to *see and search* your notes — asking questions stays
+No vector search / embeddings yet (FTS5 keyword search, now typo-tolerant with a fuzzy fallback —
+the web app's search is built behind a `SearchProvider` seam so a semantic provider can drop in
+later), no notifications or daily digests. The web app is a read-only way to *see and search* your notes — asking questions stays
 in Claude Desktop, so this remains a tool you reach for, not one that reaches for you. Ideas and
 PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
