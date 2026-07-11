@@ -119,6 +119,11 @@ function writeClaudeConfig(home: string): string {
 /** Shared sync runner used by both `sync` and the wizard. */
 async function doSync(cfg: Config, repo: Repo): Promise<SyncSummary> {
   const client = await createAnthropicClient(cfg.anthropicApiKey!);
+  // If the optional local embedding model is installed, build semantic vectors inline during sync
+  // (on-device, no API). Absent → sync just skips it and search stays keyword-only.
+  const { createEmbedder } = await import('./search/embedder.js');
+  const embedder = cfg.searchMode === 'keyword' ? null : await createEmbedder(cfg.embedModel);
+  if (embedder) p.log.message(pc.dim('Semantic search enabled — embedding pages on-device.'));
   const spin = p.spinner();
   spin.start('Syncing…');
   const summary = await runSync({
@@ -126,6 +131,7 @@ async function doSync(cfg: Config, repo: Repo): Promise<SyncSummary> {
     rmapi: createRmapi(cfg.rmapiBin),
     renderer: createRenderer(cfg.rmcBin, cfg.rsvgBin),
     extract: (img) => extractPage({ imagePath: img, model: cfg.anthropicModel, client }),
+    embed: embedder ? (t) => embedder.embed([t]).then((a) => a[0] ?? null) : undefined,
     brainFolder: cfg.brainFolder,
     manifestPath: cfg.manifestPath,
     imagesDir: cfg.imagesDir,

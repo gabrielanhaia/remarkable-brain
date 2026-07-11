@@ -21,6 +21,9 @@ export interface SyncDeps {
   rmapi: Rmapi;
   renderer: Renderer;
   extract: (imagePath: string) => Promise<PageExtraction>;
+  /** Optional: embed a page's text for semantic search. Present only when the local model is
+   *  installed; when absent, sync simply skips embeddings and search stays keyword-only. */
+  embed?: (text: string) => Promise<Float32Array | null>;
   brainFolder: string;
   manifestPath: string;
   imagesDir: string;
@@ -107,6 +110,16 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
             extractedAt: new Date().toISOString(),
           });
           deps.repo.linkEntities(pageId, ex.entities);
+          // Build the semantic-search vector inline when the local model is available (opt-in),
+          // so semantic search just works after the next sync — no separate `embed` step needed.
+          if (deps.embed && ex.extracted_text.trim()) {
+            try {
+              const vec = await deps.embed(ex.extracted_text);
+              if (vec) deps.repo.setEmbedding(pageId, vec);
+            } catch {
+              /* embeddings are best-effort; a failure must never break indexing */
+            }
+          }
           recordPage(manifest, doc.id, changeKey, pg.pageNumber, hash);
           summary.pagesExtracted++;
         } catch (err) {
