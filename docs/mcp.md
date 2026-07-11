@@ -5,6 +5,11 @@ no separate app to learn. This works through the
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io), an open standard that lets an AI
 app like Claude Desktop call external "tools."
 
+Because MCP is an **open standard**, rm-brain isn't tied to one assistant: any MCP-capable client
+can connect to the same local server — **Claude Desktop** (the primary, best-tested target),
+**ChatGPT**, **Gemini**, and others. The examples below use Claude Desktop, but the tools and setup
+are the same wherever MCP is supported.
+
 ## The idea
 
 ```

@@ -62,6 +62,8 @@ flowchart TD
     CLI["⌨️ CLI<br/>sync · search · backup"] --> F
     F <--> G["🔌 MCP server"]
     G <--> H["💬 Claude Desktop"]
+    G <--> H2["🤖 ChatGPT"]
+    G <--> H3["✦ Gemini"]
     F --> W["🖥️ Web app<br/>browse · search (localhost)"]
 
     classDef cloud fill:#e8f0fe,stroke:#4285f4,color:#1a1a1a;
@@ -69,8 +71,12 @@ flowchart TD
     classDef ai fill:#f3e8fd,stroke:#8e44ad,color:#1a1a1a;
     class A cloud;
     class B,C,D,F,CLI,W local;
-    class E,G,H ai;
+    class E,G,H,H2,H3 ai;
 ```
+
+The MCP server speaks the open [Model Context Protocol](https://modelcontextprotocol.io), so any
+MCP-capable assistant can use your notes — Claude Desktop (the primary, best-tested target),
+ChatGPT, Gemini, and others. See [docs/mcp.md](docs/mcp.md).
 
 reMarkable notebooks are stored as proprietary `.rm` v6 vector files (not PDFs), so pages are
 rendered with [`rmc`](https://github.com/ricklupton/rmc) + `rsvg-convert`. See
