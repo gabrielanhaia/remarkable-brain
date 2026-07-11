@@ -180,7 +180,8 @@ has no auth surface, and makes no outbound network calls. The **frontend ships p
 | `rm-brain setup` | Interactive setup wizard (start here) |
 | `rm-brain sync` | Pull Brain-folder notebooks, render, extract, index |
 | `rm-brain reindex` | Re-extract all indexed pages (after a prompt/model change) |
-| `rm-brain search "<query>"` | Full-text search from the terminal |
+| `rm-brain search "<query>"` | Search from the terminal (keyword + local semantic) |
+| `rm-brain embed` | Build local semantic-search vectors (optional; on-device, no API) |
 | `rm-brain list` | Show indexed notebooks and page counts |
 | `rm-brain info` | Where the data lives + stats |
 | `rm-brain backup [dest]` | Write a portable `.tar.gz` of the whole index |
@@ -203,6 +204,8 @@ All config is via environment variables (env wins) or the saved store (`~/.rm-br
 | `RSVG_BIN` | `rsvg-convert` | Path/name of rsvg-convert |
 | `ANTHROPIC_API_KEY` | — | Required only for `sync` (extraction) |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | Vision model for extraction |
+| `RM_BRAIN_SEARCH` | `auto` | `auto` uses local semantic search when available; `keyword` forces keyword-only |
+| `RM_BRAIN_EMBED_MODEL` | `Xenova/all-MiniLM-L6-v2` | On-device model for semantic embeddings |
 
 ### Portability & backup
 
@@ -256,11 +259,11 @@ everything.
 
 ## Roadmap / not in v1 (on purpose)
 
-No vector search / embeddings yet (FTS5 keyword search, now typo-tolerant with a fuzzy fallback —
-the web app's search is built behind a `SearchProvider` seam so a semantic provider can drop in
-later), no notifications or daily digests. The web app is a read-only way to *see and search* your notes — asking questions stays
-in Claude Desktop, so this remains a tool you reach for, not one that reaches for you. Ideas and
-PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
+Search is FTS5 keyword by default (stemmed, typo-tolerant, order-independent), with **optional
+on-device semantic search** you can turn on locally (see [docs/search.md](docs/search.md)) — no
+cloud search, ever. No notifications or daily digests. The web app is a read-only way to *see and
+search* your notes — asking questions stays in Claude Desktop, so this remains a tool you reach
+for, not one that reaches for you. Ideas and PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Documentation
 

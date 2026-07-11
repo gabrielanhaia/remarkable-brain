@@ -38,6 +38,13 @@ export function levenshtein(a: string, b: string): number {
   return prev[n]!;
 }
 
+/** Copy a SQLite BLOB into a fresh, aligned Float32Array (avoids byteOffset alignment pitfalls). */
+function bufToFloat32(buf: Buffer): Float32Array {
+  const ab = new ArrayBuffer(buf.length);
+  new Uint8Array(ab).set(buf);
+  return new Float32Array(ab);
+}
+
 export interface PageRecord {
   id: string;
   notebookId: string;
@@ -264,6 +271,64 @@ export class Repo {
       .filter((term) => levenshtein(token, term.toLowerCase()) <= maxDist);
     if (!near.includes(token)) near.push(token);
     return near.slice(0, 8);
+  }
+
+  // ── Semantic-search embeddings ──────────────────────────────────────────────────────────────
+
+  /** Store (or replace) a page's embedding vector. */
+  setEmbedding(pageId: string, vec: Float32Array): void {
+    const buf = Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength);
+    this.db
+      .prepare(
+        `INSERT INTO page_embeddings (page_id, dim, vec) VALUES (?, ?, ?)
+         ON CONFLICT(page_id) DO UPDATE SET dim = excluded.dim, vec = excluded.vec`
+      )
+      .run(pageId, vec.length, buf);
+  }
+
+  /** True once at least one embedding exists (drives semantic-vs-keyword provider selection). */
+  hasEmbeddings(): boolean {
+    return !!this.db.prepare('SELECT 1 FROM page_embeddings LIMIT 1').get();
+  }
+
+  /** Every embedding in non-excluded notebooks, for brute-force cosine ranking. */
+  allEmbeddings(): { pageId: string; vec: Float32Array }[] {
+    const rows = this.db
+      .prepare(
+        `SELECT pe.page_id AS pageId, pe.vec AS vec
+         FROM page_embeddings pe
+         JOIN pages p ON p.id = pe.page_id
+         JOIN notebooks n ON n.id = p.notebook_id
+         WHERE n.excluded = 0`
+      )
+      .all() as { pageId: string; vec: Buffer }[];
+    return rows.map((r) => ({ pageId: r.pageId, vec: bufToFloat32(r.vec) }));
+  }
+
+  /** Pages with text but no embedding yet — the backfill work list for `rm-brain embed`. */
+  pagesNeedingEmbedding(): { id: string; text: string }[] {
+    return this.db
+      .prepare(
+        `SELECT p.id AS id, p.extracted_text AS text
+         FROM pages p LEFT JOIN page_embeddings pe ON pe.page_id = p.id
+         WHERE pe.page_id IS NULL AND p.extracted_text IS NOT NULL
+           AND length(trim(p.extracted_text)) > 0`
+      )
+      .all() as { id: string; text: string }[];
+  }
+
+  /** Hydrate a set of page ids into SearchHits (non-excluded), for semantic-only results. */
+  pageHits(pageIds: string[]): SearchHit[] {
+    if (pageIds.length === 0) return [];
+    const placeholders = pageIds.map(() => '?').join(',');
+    return this.db
+      .prepare(
+        `SELECT p.id AS pageId, n.name AS notebookName, p.page_number AS pageNumber,
+                p.written_at AS writtenAt, substr(p.extracted_text, 1, 160) AS snippet
+         FROM pages p JOIN notebooks n ON n.id = p.notebook_id
+         WHERE p.id IN (${placeholders}) AND n.excluded = 0`
+      )
+      .all(...pageIds) as SearchHit[];
   }
 
   getPage(pageId: string): PageFull | undefined {

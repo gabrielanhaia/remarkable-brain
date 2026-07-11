@@ -202,18 +202,49 @@ async function main() {
       break;
     }
     case 'search': {
-      const { repo } = openRepo();
+      const { cfg, repo } = openRepo();
       const q = rest.join(' ');
       if (!q) {
         p.log.error('Usage: rm-brain search "<query>"');
         break;
       }
-      const hits = repo.searchNotes(q);
+      const { resolveSearchProvider } = await import('./web/search/provider.js');
+      const provider = await resolveSearchProvider(repo, cfg);
+      const hits = await provider.search(q);
       if (hits.length === 0) p.log.message(pc.dim('No matches.'));
       for (const h of hits)
         console.log(
           `${pc.cyan(h.notebookName)} p${h.pageNumber} ${pc.dim(h.writtenAt ?? '')}\n  ${h.snippet}`
         );
+      break;
+    }
+    case 'embed': {
+      const { cfg, repo } = openRepo();
+      p.intro(pc.bold('rm-brain embed'));
+      const { createEmbedder } = await import('./search/embedder.js');
+      const embedder = await createEmbedder(cfg.embedModel);
+      if (!embedder) {
+        p.log.error('Optional semantic-search dependency is not installed.');
+        p.log.message(
+          pc.dim('Enable it with:  npm install @xenova/transformers   then re-run `rm-brain embed`.')
+        );
+        break;
+      }
+      const pending = repo.pagesNeedingEmbedding();
+      if (pending.length === 0) {
+        p.log.success('All pages are already embedded — semantic search is on.');
+        break;
+      }
+      const spin = p.spinner();
+      spin.start(`Embedding ${pending.length} page(s) on-device…`);
+      let done = 0;
+      for (const { id, text } of pending) {
+        const [vec] = await embedder.embed([text]);
+        if (vec) repo.setEmbedding(id, vec);
+        if (++done % 10 === 0) spin.message(`Embedded ${done}/${pending.length}…`);
+      }
+      spin.stop(`Embedded ${done} page(s).`);
+      p.outro('Semantic search is on — search now also finds notes by meaning, entirely locally.');
       break;
     }
     case 'exclude':
@@ -300,7 +331,8 @@ async function main() {
           `  ${pc.green('setup')}            one-command guided setup (start here)`,
           '  sync             pull Brain-folder notebooks and index them',
           '  reindex          re-extract all indexed pages (after a prompt/model change)',
-          '  search <query>   full-text search in the terminal',
+          '  search <query>   search your notes in the terminal (keyword + local semantic)',
+          '  embed            build local semantic-search vectors (optional; on-device, no API)',
           '  list             show indexed notebooks',
           '  info             show where data lives + stats',
           '  backup [dest]    write a portable .tar.gz of the whole index',

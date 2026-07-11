@@ -123,28 +123,28 @@ test('GET /api/pages/:id is 404 for a missing page', () => {
   expect(call(routes, '/api/pages/:id', { id: 'missing' }).status).toBe(404);
 });
 
-test('GET /api/search returns hits for a query', () => {
-  const res = call(routes, '/api/search', {}, 'q=Acme');
+test('GET /api/search returns hits for a query', async () => {
+  const res = await call(routes, '/api/search', {}, 'q=Acme');
   expect(res.status).toBe(200);
   const body = res.body as any[];
   expect(body.length).toBe(2); // p1 + p2, excluded p3 filtered by repo
   expect(body[0].notebookName).toBe('Work Notes');
 });
 
-test('GET /api/search with an empty query returns an empty 200', () => {
-  const res = call(routes, '/api/search', {}, 'q=   ');
+test('GET /api/search with an empty query returns an empty 200', async () => {
+  const res = await call(routes, '/api/search', {}, 'q=   ');
   expect(res.status).toBe(200);
   expect(res.body).toEqual([]);
 });
 
-test('GET /api/search applies the open_loop filter', () => {
-  const res = call(routes, '/api/search', {}, 'q=Acme&open_loop=1');
+test('GET /api/search applies the open_loop filter', async () => {
+  const res = await call(routes, '/api/search', {}, 'q=Acme&open_loop=1');
   const body = res.body as any[];
   expect(body.map((h) => h.pageId)).toEqual(['p2']);
 });
 
-test('GET /api/search applies the type filter', () => {
-  const res = call(routes, '/api/search', {}, 'q=Acme&type=decision');
+test('GET /api/search applies the type filter', async () => {
+  const res = await call(routes, '/api/search', {}, 'q=Acme&type=decision');
   const body = res.body as any[];
   expect(body.map((h) => h.pageId)).toEqual(['p1']);
 });
@@ -175,13 +175,13 @@ test('GET /api/entities/:name/timeline is chronological', () => {
   expect(body.map((e) => e.pageId)).toEqual(['p1', 'p2']);
 });
 
-test('every endpoint short-circuits to a friendly 503 when the index is empty', () => {
+test('every endpoint short-circuits to a friendly 503 when the index is empty', async () => {
   const emptyRoutes = buildApi(emptyRepo(), config);
   for (const r of emptyRoutes) {
     const params: Record<string, string> = {};
     if (r.pattern.includes(':id')) params.id = 'x';
     if (r.pattern.includes(':name')) params.name = 'x';
-    const res = r.handler({ params, query: new URLSearchParams('q=x') });
+    const res = await r.handler({ params, query: new URLSearchParams('q=x') });
     expect(res.status, r.pattern).toBe(503);
     expect((res.body as any).error).toMatch(/rm-brain sync/);
   }

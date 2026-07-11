@@ -1,4 +1,6 @@
+import type { Config } from '../../config.js';
 import type { Repo, SearchHit } from '../../storage/repo.js';
+import { cosine, createEmbedder, type Embedder } from '../../search/embedder.js';
 
 /**
  * Optional narrowing applied on top of a raw query. All fields are optional; an absent field
@@ -15,29 +17,23 @@ export interface SearchFilters {
 
 /**
  * The search seam. The API and the SPA depend ONLY on this interface, never on a concrete
- * implementation, so the ranking strategy can change without touching either layer.
+ * implementation, so the ranking strategy can change without touching either layer. `search` is
+ * async so a provider may embed the query on-device (still no network) before ranking.
  */
 export interface SearchProvider {
-  search(query: string, filters?: SearchFilters): SearchHit[];
+  search(query: string, filters?: SearchFilters): Promise<SearchHit[]>;
 }
 
 /**
- * v1 provider: full-text keyword search over `pages_fts`, via `repo.searchNotes`.
- *
- * Filters are applied AFTER the FTS query. `searchNotes` already returns notebook name, page
- * number, date and a highlighted snippet; the type/open-loop filters need per-page metadata not
- * present on `SearchHit`, so they are resolved through `repo.getPage(hit.pageId)`. This keeps all
- * SQL inside the Repo (no duplicated data logic here) at the cost of N lookups on a filtered
- * search — fine for a local, single-user index. If that ever gets hot, add a single filtered
- * query to the Repo and call it here.
+ * v1 provider: full-text keyword search over `pages_fts` (stemmed + prefix + fuzzy), via
+ * `repo.searchNotes`. Filters are applied AFTER the FTS query through per-page metadata.
  */
 export class FtsSearchProvider implements SearchProvider {
   constructor(private readonly repo: Repo) {}
 
-  search(query: string, filters?: SearchFilters): SearchHit[] {
+  async search(query: string, filters?: SearchFilters): Promise<SearchHit[]> {
     const q = query.trim();
     if (!q) return [];
-    // Over-fetch when filtering so post-filtering still yields a full-looking result set.
     const hasFilters = !!(filters?.notebook || filters?.type || filters?.openLoop);
     const hits = this.repo.searchNotes(q, hasFilters ? 100 : 20);
     if (!hasFilters) return hits;
@@ -55,24 +51,82 @@ export class FtsSearchProvider implements SearchProvider {
   }
 }
 
-/*
- * ─────────────────────────────────────────────────────────────────────────────────────────────
- * FUTURE: SemanticSearchProvider (designed-for, NOT implemented in v1)
- * ─────────────────────────────────────────────────────────────────────────────────────────────
- * A drop-in `SearchProvider` backed by local vector embeddings. Sketch of the intended shape:
- *
- *   export class SemanticSearchProvider implements SearchProvider {
- *     constructor(private repo: Repo, private embedder: Embedder, private db: DB) {}
- *     search(query, filters?) {
- *       // 1. Embed the query locally (no network) → vector.
- *       // 2. ANN lookup over a `sqlite-vec` virtual table of per-page embeddings.
- *       // 3. HYBRID rank: blend the vector distance with the FTS BM25 `rank` from
- *       //    repo.searchNotes (reciprocal-rank fusion) so keyword-exact hits still win.
- *       // 4. Map results into SearchHit[] and apply the SAME SearchFilters as FTS.
- *     }
- *   }
- *
- * Adoption requires NO change to the API endpoint or the SPA — only the provider selected in
- * `buildApi` (later gated by config/env, e.g. RM_BRAIN_SEARCH=semantic). Embeddings would be
- * produced during `rm-brain sync` and stored alongside pages; nothing leaves the machine.
+const HYBRID_LIMIT = 30;
+const RRF_K = 60; // reciprocal-rank-fusion damping; higher = flatter contribution from deep ranks
+
+/**
+ * Hybrid provider: blends keyword search with local semantic (vector) search. The query is embedded
+ * ON-DEVICE (no network) and compared by cosine similarity against per-page embeddings; the two
+ * ranked lists are fused with Reciprocal Rank Fusion so exact keyword hits and meaning-based hits
+ * both surface. Semantic ranking is best-effort — if embedding fails, keyword results still return.
  */
+export class HybridSearchProvider implements SearchProvider {
+  constructor(
+    private readonly repo: Repo,
+    private readonly embedder: Embedder,
+    private readonly keyword: SearchProvider
+  ) {}
+
+  async search(query: string, filters?: SearchFilters): Promise<SearchHit[]> {
+    const q = query.trim();
+    if (!q) return [];
+    const hasFilters = !!(filters?.notebook || filters?.type || filters?.openLoop);
+
+    const keywordHits = await this.keyword.search(q, filters);
+
+    let semanticIds: string[] = [];
+    try {
+      const [qv] = await this.embedder.embed([q]);
+      if (qv) {
+        semanticIds = this.repo
+          .allEmbeddings()
+          .map((e) => ({ pageId: e.pageId, score: cosine(qv, e.vec) }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 50)
+          .map((s) => s.pageId);
+        if (hasFilters) semanticIds = semanticIds.filter((id) => this.passesFilters(id, filters!));
+      }
+    } catch {
+      // Semantic pass is best-effort; a missing/failed model must never break search.
+    }
+    if (semanticIds.length === 0) return keywordHits;
+
+    // Reciprocal Rank Fusion of the two ranked lists.
+    const fused = new Map<string, number>();
+    keywordHits.forEach((h, i) => fused.set(h.pageId, (fused.get(h.pageId) ?? 0) + 1 / (RRF_K + i + 1)));
+    semanticIds.forEach((id, i) => fused.set(id, (fused.get(id) ?? 0) + 1 / (RRF_K + i + 1)));
+    const ordered = [...fused.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, HYBRID_LIMIT)
+      .map(([id]) => id);
+
+    // Hydrate: reuse keyword SearchHits (good highlighted snippets) where available.
+    const byId = new Map(keywordHits.map((h) => [h.pageId, h]));
+    const needed = ordered.filter((id) => !byId.has(id));
+    for (const h of this.repo.pageHits(needed)) byId.set(h.pageId, h);
+    return ordered.map((id) => byId.get(id)).filter((h): h is SearchHit => !!h);
+  }
+
+  private passesFilters(pageId: string, filters: SearchFilters): boolean {
+    const page = this.repo.getPage(pageId);
+    if (!page) return false;
+    if (filters.notebook && page.notebookName !== filters.notebook) return false;
+    if (filters.type && page.pageType !== filters.type) return false;
+    if (filters.openLoop && !page.openLoop) return false;
+    return true;
+  }
+}
+
+/**
+ * Pick the active search provider. Uses hybrid keyword+semantic search when the config allows it
+ * (`searchMode !== 'keyword'`), embeddings exist, AND the optional embedding dependency is
+ * installed; otherwise falls back to plain keyword search. Never throws.
+ */
+export async function resolveSearchProvider(repo: Repo, cfg: Config): Promise<SearchProvider> {
+  const keyword = new FtsSearchProvider(repo);
+  if (cfg.searchMode === 'keyword') return keyword;
+  if (!repo.hasEmbeddings()) return keyword;
+  const embedder = await createEmbedder(cfg.embedModel);
+  if (!embedder) return keyword;
+  return new HybridSearchProvider(repo, embedder, keyword);
+}

@@ -46,6 +46,14 @@ export function migrate(db: DB): void {
       PRIMARY KEY (page_id, entity_id)
     );
 
+    -- Per-page embedding vectors for local semantic search (optional feature). vec is the raw
+    -- little-endian Float32 array; dim is its length. Populated on-device during sync/embed.
+    CREATE TABLE IF NOT EXISTS page_embeddings (
+      page_id TEXT PRIMARY KEY REFERENCES pages(id) ON DELETE CASCADE,
+      dim INTEGER NOT NULL,
+      vec BLOB NOT NULL
+    );
+
     -- Two indexes over the same text, kept in sync by the triggers below:
     --   pages_fts     — Porter-stemmed, so word forms match (meeting/meetings/meet, run/running).
     --   pages_raw_fts — unstemmed, so the fuzzy fallback compares typos against WHOLE words

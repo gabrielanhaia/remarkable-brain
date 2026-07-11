@@ -6,6 +6,7 @@ import { resolveConfig } from '../config.js';
 import { openDb, migrate } from '../storage/db.js';
 import { Repo } from '../storage/repo.js';
 import { buildApi, type ApiRoute } from './api.js';
+import { resolveSearchProvider } from './search/provider.js';
 import { contentTypeFor, resolveImageFile, resolveSpaDir, resolveStaticFile } from './static.js';
 
 export interface WebServerOptions {
@@ -81,13 +82,14 @@ export function createRequestHandler(
       return;
     }
 
-    // 1) JSON API
+    // 1) JSON API. Handlers may be async (e.g. semantic search embeds the query on-device).
     if (path === '/api' || path.startsWith('/api/')) {
       for (const route of routes) {
         const params = matchRoute(route.pattern, path);
         if (params) {
-          const { status, body } = route.handler({ params, query: url.searchParams });
-          sendJson(res, status, body);
+          Promise.resolve(route.handler({ params, query: url.searchParams }))
+            .then(({ status, body }) => sendJson(res, status, body))
+            .catch(() => sendJson(res, 500, { error: 'Internal error' }));
           return;
         }
       }
@@ -137,7 +139,7 @@ export function createRequestHandler(
  * prebuilt SPA, prints the URL, and (unless `open: false`) opens the browser. Returns the running
  * `http.Server` so tests/callers can close it.
  */
-export function startWebServer(options: WebServerOptions = {}): Promise<Server> {
+export async function startWebServer(options: WebServerOptions = {}): Promise<Server> {
   const port = options.port ?? DEFAULT_PORT;
   const host = options.host ?? DEFAULT_HOST;
   const open = options.open ?? true;
@@ -147,7 +149,8 @@ export function startWebServer(options: WebServerOptions = {}): Promise<Server> 
   const db = openDb(cfg.dbPath);
   migrate(db);
   const repo = new Repo(db);
-  const routes = buildApi(repo, cfg);
+  // Semantic search (when available) loads its model here, once, at server start.
+  const routes = buildApi(repo, cfg, await resolveSearchProvider(repo, cfg));
   const spaDir = resolveSpaDir();
 
   const server = createServer(createRequestHandler(routes, { imagesDir: cfg.imagesDir, spaDir }));

@@ -13,6 +13,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   finds "meetings", "run" finds "running"). Implemented with a Porter-stemmed FTS index alongside
   an unstemmed companion index that keeps the typo-tolerant fuzzy fallback accurate. Fully local;
   a migration rebuilds existing indexes with no re-extraction.
+- **Local semantic search (optional)** — search by meaning using on-device embeddings, with **no
+  API calls at search time**. Pages are embedded locally (`rm-brain embed`) and the query is
+  embedded locally at search time; results are ranked by cosine similarity and fused with the
+  keyword ranking (Reciprocal Rank Fusion). It's opt-in — the embedding runtime
+  (`@xenova/transformers`, a ~25 MB quantized MiniLM) is an optional, lazy-loaded dependency, so
+  the base install stays light and search falls back to keyword-only when it's absent. Selectable
+  via `RM_BRAIN_SEARCH` (`auto` | `keyword`); lives behind the existing `SearchProvider` seam, so
+  the web app and MCP tools are unchanged.
 
 ## [0.2.0] - 2026-07-10
 

@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readStore } from './store.js';
+import { DEFAULT_EMBED_MODEL } from './search/embedder.js';
 
 /** Documents inside this reMarkable folder (recursively) are the ones we index. */
 export const DEFAULT_BRAIN_FOLDER = '/Brain';
@@ -17,6 +18,10 @@ export interface Config {
   brainFolder: string;
   anthropicApiKey?: string;
   anthropicModel: string;
+  /** 'auto' = use local semantic search when embeddings + the model are available; 'keyword' = never. */
+  searchMode: 'auto' | 'keyword';
+  /** transformers.js model id for on-device query/page embeddings (semantic search). */
+  embedModel: string;
 }
 
 /** Normalize a folder to an absolute reMarkable path (leading slash, no trailing slash). */
@@ -40,6 +45,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     brainFolder: normalizeFolder(env.RM_BRAIN_FOLDER?.trim() || DEFAULT_BRAIN_FOLDER),
     anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() || undefined,
     anthropicModel: env.ANTHROPIC_MODEL?.trim() || 'claude-sonnet-5',
+    searchMode: env.RM_BRAIN_SEARCH?.trim() === 'keyword' ? 'keyword' : 'auto',
+    embedModel: env.RM_BRAIN_EMBED_MODEL?.trim() || DEFAULT_EMBED_MODEL,
   };
 }
 

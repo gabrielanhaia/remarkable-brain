@@ -25,7 +25,7 @@ export interface ApiResponse {
   body: unknown;
 }
 
-export type ApiHandler = (req: ApiRequest) => ApiResponse;
+export type ApiHandler = (req: ApiRequest) => ApiResponse | Promise<ApiResponse>;
 
 /** A GET route: a path pattern with `:param` segments and its handler. */
 export interface ApiRoute {
@@ -130,7 +130,7 @@ export function buildApi(
     return ok(body);
   };
 
-  const searchHandler: ApiHandler = (req) => {
+  const searchHandler: ApiHandler = async (req) => {
     if (!hasPages()) return emptyIndex();
     const q = req.query.get('q')?.trim() ?? '';
     if (!q) return ok([] as SearchResult[]);
@@ -141,7 +141,7 @@ export function buildApi(
     if (notebook) filters.notebook = notebook;
     if (type) filters.type = type;
     if (openLoop === '1' || openLoop === 'true') filters.openLoop = true;
-    const body: SearchResult[] = search.search(q, filters);
+    const body: SearchResult[] = await search.search(q, filters);
     return ok(body);
   };
 

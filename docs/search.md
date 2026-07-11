@@ -60,9 +60,28 @@ are tool parameters.
 Results are ranked by FTS5's built-in **BM25** relevance, most relevant first, and each result
 carries its provenance — notebook, page number, date, and a highlighted snippet.
 
-## Extensible by design (semantic search)
+## Semantic search (optional, fully local)
 
-Search sits behind a small `SearchProvider` interface. The shipped provider is keyword-based
-(everything above). A **local semantic** provider — matching by *meaning* using on-device
-embeddings, with no API calls at search time — can drop in behind the same interface without
-changing the web app or the MCP tools. See the roadmap in the [README](../README.md).
+On top of the keyword layer, rm-brain can also search by **meaning** — so "car" can find
+"vehicle", or "unfinished work" can surface your open loops — using **on-device embeddings**. There
+are **no API calls at search time**: a small model runs locally to turn your query (and, during
+`embed`, each page) into a vector; pages are ranked by cosine similarity; and that ranking is fused
+with the keyword ranking using
+[Reciprocal Rank Fusion](https://en.wikipedia.org/wiki/Learning_to_rank), so exact keyword hits and
+meaning-based hits both surface.
+
+It's **opt-in**, so the base install stays light and the ML runtime never ships to people who don't
+want it:
+
+```bash
+npm install @xenova/transformers   # one-time; the local embedding runtime
+rm-brain embed                     # build vectors for your pages (on-device, no API)
+rm-brain search "..."              # now keyword + semantic — and so is the web app
+```
+
+The model (a quantized MiniLM, ~25 MB) downloads once and then runs offline. If the dependency or
+the vectors aren't present, search **silently stays keyword-only** — nothing breaks. Force it off
+anytime with `RM_BRAIN_SEARCH=keyword`.
+
+It all lives behind the same `SearchProvider` seam, so the web app and MCP tools don't change.
+
