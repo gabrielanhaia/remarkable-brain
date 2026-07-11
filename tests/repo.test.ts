@@ -59,6 +59,16 @@ test('searchNotes matches partial words via prefix', () => {
   expect(repo.searchNotes('pric').length).toBe(1); // "pric" → pricing on p1
 });
 
+test('searchNotes matches word forms via stemming (both directions)', () => {
+  repo.upsertPage({
+    id: 'p9', notebookId: 'n1', pageNumber: 9,
+    extractedText: 'Weekly meetings about running the release', openLoop: false,
+  });
+  expect(repo.searchNotes('meeting').map((h) => h.pageId)).toContain('p9'); // meeting → meetings
+  expect(repo.searchNotes('run').map((h) => h.pageId)).toContain('p9'); // run → running
+  expect(repo.searchNotes('releases').map((h) => h.pageId)).toContain('p9'); // releases → release
+});
+
 test('searchNotes tolerates spelling mistakes via a fuzzy fallback', () => {
   expect(repo.searchNotes('Acne').length).toBe(2); // typo for "Acme" (edit distance 1)
   expect(repo.searchNotes('pricign').length).toBe(1); // transposition of "pricing"

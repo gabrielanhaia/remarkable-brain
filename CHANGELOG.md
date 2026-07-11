@@ -7,6 +7,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Stemming in search** — search now matches word forms in both directions (searching "meeting"
+  finds "meetings", "run" finds "running"). Implemented with a Porter-stemmed FTS index alongside
+  an unstemmed companion index that keeps the typo-tolerant fuzzy fallback accurate. Fully local;
+  a migration rebuilds existing indexes with no re-extraction.
+
 ## [0.2.0] - 2026-07-10
 
 ### Added

@@ -162,8 +162,8 @@ export function Search() {
           <ResultsSkeleton />
         ) : (results.data?.length ?? 0) === 0 ? (
           <EmptyHint icon="⌕" title={`No matches for “${debounced}”`}>
-            Try a different phrase{hasActiveFilters ? ', or clear your filters' : ''}. Partial words
-            and small typos are handled — try fewer or simpler words.
+            Try a different phrase{hasActiveFilters ? ', or clear your filters' : ''}. Word forms,
+            partial words, and small typos are handled — try fewer or simpler words.
           </EmptyHint>
         ) : (
           <>
@@ -226,8 +226,8 @@ function StartHint() {
       </div>
       <p className="font-display text-lg font-semibold text-ink">Start typing to search</p>
       <p className="mt-1.5 max-w-sm text-sm text-muted">
-        Every word from your scanned pages is indexed — partial words and small typos still match.
-        Filter by notebook, page type, or open loops.
+        Every word from your scanned pages is indexed — word forms, partial words, and small typos
+        still match. Filter by notebook, page type, or open loops.
       </p>
     </div>
   );

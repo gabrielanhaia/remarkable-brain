@@ -164,10 +164,10 @@ rm-brain web --host 127.0.0.1      # bind address (localhost only, by design)
 rm-brain web --no-open             # don't auto-open the browser
 ```
 
-It serves the Dashboard (counts + recent open loops and pages), **typo-tolerant search** —
-partial words and small misspellings still match — with filters (notebook, page type, open-loop
-only), a Notebooks grid **grouped by reMarkable subfolder**, per-page detail (scanned image
-side-by-side with the transcription), Open Loops, and Entity timelines.
+It serves the Dashboard (counts + recent open loops and pages), **forgiving search** — word forms
+(meeting/meetings), partial words, and small misspellings all match — with filters (notebook, page
+type, open-loop only), a Notebooks grid **grouped by reMarkable subfolder**, per-page detail
+(scanned image side-by-side with the transcription), Open Loops, and Entity timelines.
 
 Same guarantees as the rest of rm-brain: it binds `127.0.0.1` only, exposes GET endpoints only,
 has no auth surface, and makes no outbound network calls. The **frontend ships prebuilt** (in
