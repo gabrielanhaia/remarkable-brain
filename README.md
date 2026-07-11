@@ -262,6 +262,18 @@ later), no notifications or daily digests. The web app is a read-only way to *se
 in Claude Desktop, so this remains a tool you reach for, not one that reaches for you. Ideas and
 PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+## Documentation
+
+Want to understand how it works under the hood?
+
+- **[How search works](docs/search.md)** — local keyword search, stemming (word forms), typo
+  tolerance, and word-order independence, all offline.
+- **[How rm-brain uses AI](docs/how-ai-works.md)** — where Claude vision comes in (indexing only),
+  what it extracts from each page, and exactly what does and doesn't cross the network.
+- **[How the MCP integration works](docs/mcp.md)** — the read-only tools rm-brain exposes to Claude
+  Desktop, and how a question becomes an answer with citations.
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — the full system design and data flow.
+
 ## Contributing
 
 Contributions are very welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) to get set up,
